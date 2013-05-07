@@ -521,3 +521,15 @@ we load it.
 
 ;;;***
 
+
+;;;***
+
+;;;### (autoloads (haskell-glasses-mode) "haskell-glasses"
+;;;;;;  "haskell-glasses.el" (20443 5401))
+;;; Generated autoloads from haskell-glasses.el
+
+(autoload 'haskell-glasses-mode "haskell-glasses" "\
+Display haskell code scholastic
+
+\(fn)" t nil)
+

@@ -154,6 +154,13 @@ If it is nil, no face is placed at the lambda abstractions. "
   :set 'haskell-glasses-custom-set
   :initialize 'custom-initialize-default)
 
+(defcustom glasses-subscript-inhibit-mix-case-p t
+  "Display Tt1 as Tt1 but TT1 as TT₁."
+  :group 'haskell-glasses
+  :type 'boolean
+  :set 'haskell-glasses-custom-set
+  :initialize 'custom-initialize-default)
+
 (defcustom glasses-subscript-face nil
   "Face to be put on subscript.
 If it is nil, no face is placed at the lambda abstractions. "
@@ -330,8 +337,8 @@ CATEGORY is the overlay category."
     overlay))
 
 (defconst | "\\|")
-(defconst cid "[A-Z][[:alnum:]_']*")
-(defconst vid "\\<[a-z_][[:alnum:]_']*\\>")
+(defconst cid "[[:upper:]][[:alnum:]_']*")
+(defconst vid "\\<[[:lower:]_][[:alnum:]_']*\\>")
 (defconst qid (concat "\\(" cid "[.]\\)*" vid))
 (defconst par "\\(([^()]*?)\\|(.*)\\)")
 (defconst blk "[[:blank:]]*")
@@ -346,10 +353,12 @@ CATEGORY is the overlay category."
       (save-match-data
 	(goto-char beg)
 	(while (re-search-forward
-                "[[:alpha:]_]+'*\\([[:digit:]]+\\)"
+                (if glasses-subscript-inhibit-mix-case-p
+                    "\\<\\([[:lower:]_]+\\|[[:upper:]_]+\\)'*\\([[:digit:]]+\\)\\>"
+                  "\\<\\([[:alpha:]_]+\\)'*\\([[:digit:]]+\\)\\>")
                 end t)
-          (let  ((sb (match-beginning 1))
-                 (se (match-end 1)))
+          (let  ((sb (match-beginning 2))
+                 (se (match-end 2)))
             (when (and sb se)
               (funcall maker sb se))))))))
 
@@ -479,11 +488,15 @@ CATEGORY is the overlay category."
     (save-excursion
       (save-match-data
 	(goto-char beg)
-	(while (re-search-forward "\\(\\<undefined\\>\\)[^']" end t)
-          (let  ((sb (match-beginning 1))
-                 (se (match-end 1)))
-            (when (and sb se)
-              (funcall maker sb se))))))))
+	(while (re-search-forward "\\(\\<undefined\\>\\)[^']\\|\\(\\<undefined$\\)" end t)
+          (let  ((sb1 (match-beginning 1))
+                 (se1 (match-end 1))
+                 (sb2 (match-beginning 2))
+                 (se2 (match-end 2)))
+            (when (and sb1 se1)
+              (funcall maker sb1 se1))
+            (when (and sb2 se2)
+              (funcall maker sb2 se2))))))))
 
 (defun haskell-glasses-display-scholastic (beg end)
   "Make haskell code in the region from BEG to END scholastic."
