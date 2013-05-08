@@ -169,14 +169,14 @@ If it is nil, no face is placed at the lambda abstractions. "
   :set 'haskell-glasses-custom-set
   :initialize 'custom-initialize-default)
 
-(defcustom glasses-subscript-height 0.6
+(defcustom glasses-subscript-height 0.75
   "Height of the subscript number. "
   :group 'haskell-glasses
   :type 'number
   :set 'haskell-glasses-custom-set
   :initialize 'custom-initialize-default)
 
-(defcustom glasses-subscript-raise -0.25
+(defcustom glasses-subscript-raise 0
   "Raise of the subscript number. "
   :group 'haskell-glasses
   :type 'number
@@ -346,6 +346,7 @@ CATEGORY is the overlay category."
 (defconst llexeme (concat blk "\\(" qid | par | "(\\)" blk))
 (defconst rlexeme (concat blk "\\(" qid | par | ")\\)" blk))
 (defun iop (opreg) (concat "\\([^[:punct:]]\\|[()_'\"]\\)\\(" opreg "\\)\\([^[:punct:]]\\|[()_'\"]\\)"))
+(defconst hstr "\"\\([^\"\\]\\|\\([^\\]\\|\\(\\\\\\\\\\)*\\)\\\\.\\)*\"\\|\"\\(\\\\\\\\\\)*\\\\.\\([^\"\\]\\|\\([^\\]\\|\\(\\\\\\\\\\)*\\)\\\\.\\)*\"")
 
 (defun haskell-search-id-subscript (beg end maker)
   (let ((case-fold-search nil))
@@ -354,7 +355,7 @@ CATEGORY is the overlay category."
 	(goto-char beg)
 	(while (re-search-forward
                 (if glasses-subscript-inhibit-mix-case-p
-                    "\\<\\([[:lower:]_]+\\|[[:upper:]_]+\\)'*\\([[:digit:]]+\\)\\>"
+                    "\\<\\([[:lower:]]+\\|[[:upper:]]+\\)'*\\([[:digit:]]+\\)\\>"
                   "\\<\\([[:alpha:]_]+\\)'*\\([[:digit:]]+\\)\\>")
                 end t)
           (let  ((sb (match-beginning 2))
@@ -578,17 +579,59 @@ CATEGORY is the overlay category."
                                (overlay-put os 'display glasses-bottom-undefined))))))
 
 (defun haskell-glasses-display-normal (beg end)
-  "Return code in the region from BEG to END to their normal state."
+  "Display code in the region from BEG to END to their normal state."
   (dolist (o (overlays-in beg end))
     (when (haskell-glasses-overlay-p o)
       (delete-overlay o))))
+
+(defun haskell-glasses-display-normal-cpp (beg end)
+  "Display cpp code in the region from BEG to END to their normal state."
+  (save-excursion
+    (goto-char beg)
+    (while (<= (line-end-position) end)
+      (goto-char (line-beginning-position))
+      (when (and (current-word) (char-equal ?# (string-to-char (current-word))))
+        (dolist (o (overlays-in (line-beginning-position) (line-end-position)))
+          (when (haskell-glasses-overlay-p o)
+            (delete-overlay o))))
+      (next-line))))
+
+(defun haskell-glasses-display-normal-comment (beg end)
+  "Display comment code in the region from BEG to END to their normal state."
+  (save-excursion
+    (goto-char beg)
+    (while (<= (line-end-position) end)
+      (goto-char (line-beginning-position))
+      (when (re-search-forward "\\(--\\)" (line-end-position) t)
+        (let ((cb (match-beginning 1)))
+          (when cb
+            (dolist (o (overlays-in cb (line-end-position)))
+              (when (haskell-glasses-overlay-p o)
+                (delete-overlay o))))))
+      (next-line))))
+
+(defun haskell-glasses-display-normal-string (beg end)
+  "Display string in the region from BEG to END to their normal state."
+  (save-excursion
+    (goto-char beg)
+    (while (re-search-forward
+            (concat "\\([^\\]" hstr | "^" hstr "\\)") end t)
+      (let ((cb (match-beginning 1))
+            (ce (match-end 1)))
+          (when (and cb ce)
+            (dolist (o (overlays-in cb ce))
+              (when (haskell-glasses-overlay-p o)
+                (delete-overlay o))))))))
 
 (defun haskell-glasses-change (beg end)
   "After-change function updating haskell glass overlays."
   (let ((beg-line (save-excursion (goto-char beg) (line-beginning-position)))
 	(end-line (save-excursion (goto-char end) (line-end-position))))
     (haskell-glasses-display-normal beg-line end-line)
-    (haskell-glasses-display-scholastic beg-line end-line)))
+    (haskell-glasses-display-scholastic beg-line end-line)
+    (haskell-glasses-display-normal-cpp beg-line end-line)
+    (haskell-glasses-display-normal-comment beg-line end-line)
+    (haskell-glasses-display-normal-string beg-line end-line)))
 
 ;;; Minor mode definition
 
