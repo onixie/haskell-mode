@@ -325,39 +325,48 @@ CATEGORY is the overlay category."
 ;;; 
 (defconst | "\\|")
 (defconst \( "\\(")
+(defconst \(?: "\\(?:" )
 (defconst \) "\\)")
-(defconst cid (concat \( "\\<[[:upper:]][[:alnum:]_']*"  \) ))
-(defconst vid (concat \( "\\<[[:lower:]_][[:alnum:]_']*" \) ))
-(defconst mid (concat \( \( cid  "[.]" \) "*?" \) ))
-(defconst qid (concat mid \( vid | cid \) ))
+(defconst cid (concat \(?: "\\<[[:upper:]][[:alnum:]_']*"  \) ))
+(defconst vid (concat \(?: "\\<[[:lower:]_][[:alnum:]_']*" \) ))
+(defconst mid (concat \(?: \(?: cid  "[.]" \) "*" \) ))
+(defconst qid (concat mid \(?: vid | cid \) ))
 
 (defun qot (del)
   (concat
    del
-      \( "[^" del "\\]" | \( "[^\\]" | \( "\\\\\\\\" \) "*" \) "\\\\." \) "*"
+      \(?: "[^" del "\\]" | \(?: "[^\\]" | \(?: "\\\\\\\\" \) "*" \) "\\\\." \) "*"
    del
    |
    del
-      \( "\\\\\\\\" \) "*" "\\\\." \( "[^" del "\\]" | \( "[^\\]" | \( "\\\\\\\\" \) "*" \) "\\\\." \) "*"
+      \(?: "\\\\\\\\" \) "*" "\\\\." \(?: "[^" del "\\]" | \(?: "[^\\]" | \(?: "\\\\\\\\" \) "*" \) "\\\\." \) "*"
    del))
 
 (defconst str (qot "\""))
 (defconst chr (qot "'"))
 
 ;;; 
-(defconst id1 "\\<\\([[:lower:]]+\\|[[:upper:]]+\\)'*\\([[:digit:]]+\\)'*\\>")
-(defconst id2 "\\<\\([[:alpha:]_]+\\)'*\\([[:digit:]]+\\)'*\\>")
+(defconst id1 "\\<\\(?:[[:lower:]]+\\|[[:upper:]]+\\)'*\\([[:digit:]]+\\)'*\\>")
+(defconst id2 "\\<\\(?:[[:alpha:]_]+\\)'*\\([[:digit:]]+\\)'*\\>")
 
 (defun iop (opreg)
   (concat
-   \( "[^[:punct:]]" | "[]}()_'\"]" \) "?"
-   mid "?" \( (regexp-quote opreg) \)
-   \( "[^[:punct:]]" | "[[{()_'\"]" \)
+   \(?:
+   \(?: "[^[:punct:]]" | "[]}()_'\"]" \)
+   mid \( (regexp-quote opreg) \)
+   \(?: "[^[:punct:]]" | "[[{()_'\"]" \)
+   \)
+   | 
+   \(?:
+   "^"
+   mid \( (regexp-quote opreg) \)
+   \(?: "[^[:punct:]]" | "[[{()_'\"]" \)
+   \)
    ))
 
 (defconst vid-not "\\(\\<not\\>[[:blank:]]*\\)")
 (defconst vid-undefined "\\(\\<undefined\\>\\)[^']\\|\\(\\<undefined$\\)")
-(defconst lncmt (concat \( "--" \( "[-[:alnum:][:blank:](){}|;_`'\",]" | "\\[" | "\\]" \) ".*" \) ))
+(defconst lncmt (concat \( "--" \(?: "[-[:alnum:][:blank:](){}|;_`'\",]" | "\\[" | "\\]" \) ".*" \) ))
 
 (defun haskell-glasses-skip-glasses (beg end)
   (save-excursion
@@ -389,15 +398,23 @@ CATEGORY is the overlay category."
            (while (re-search-forward ,mat end t)
              ,@(mapcar
                 (lambda (m)
-                  `(let  ((sb (match-beginning ,(car m)))
-                          (se (match-end ,(car m))))
-                     (when (and sb se (not (haskell-glasses-skip-glasses sb se))) 
-                       (funcall ,(cadr m) sb se))))
+                  (if (atom (car m))
+                      `(let  ((sb (match-beginning ,(car m)))
+                              (se (match-end ,(car m))))
+                         (when (and sb se (not (haskell-glasses-skip-glasses sb se))) 
+                           (funcall ,(cadr m) sb se)))
+                    `(progn
+                       ,@(mapcar (lambda (n)
+                                   `(let  ((sb (match-beginning ,n))
+                                           (se (match-end ,n)))
+                                      (when (and sb se (not (haskell-glasses-skip-glasses sb se))) 
+                                        (funcall ,(cadr m) sb se))))
+                                 (car m)))))
                 makers)))))))
 
 (defmacro haskell-glasses-make-iop-glasses (mat gls &rest body)
   `(haskell-glasses-make-glasses (iop ,mat)
-    ((5 (lambda (sb se)
+    (((1 2) (lambda (sb se)
           (block nil
             (goto-char se)
             ,@body
@@ -405,13 +422,13 @@ CATEGORY is the overlay category."
               (let ((os (haskell-glasses-make-overlay sb se ',gls)))
                 (overlay-put os 'display ,gls)))))))))
 
-(defvar haskell-glasses-make-subscript-glasses
-  (haskell-glasses-make-glasses (if glasses-subscript-inhibit-mix-case-p id1 id2)
-    ((2 (lambda (sb se)
+(defun haskell-glasses-make-subscript-glasses (beg end)
+  (funcall
+   (haskell-glasses-make-glasses (if glasses-subscript-inhibit-mix-case-p id1 id2)
+    ((1 (lambda (sb se)
           (let  ((os (haskell-glasses-make-overlay sb se 'glasses-subscript)))
             (overlay-put os 'display `((height ,glasses-subscript-height)
-                                       (raise ,glasses-subscript-raise)))))))))
-
+                                       (raise ,glasses-subscript-raise)))))))) beg end))
 
 (defun haskell-glasses-find-lamb-dot (pos lim)
   (save-excursion
@@ -489,14 +506,16 @@ CATEGORY is the overlay category."
         (let ((d (haskell-glasses-find-lamb-lamb se (point-min))))
           (unless d (return)))))) beg end))
 
-(defvar haskell-glasses-make-fun-compose-glasses
-  (haskell-glasses-make-iop-glasses "." glasses-fun-compose
-   (save-excursion
-     (save-match-data
-       (when (re-search-backward cid (line-beginning-position) t)
-         (let ((pse (match-end 1)))
-           (when (and pse (= pse sb))
-             (return))))))))
+(defun haskell-glasses-make-fun-compose-glasses (beg end)
+  (funcall 
+   (haskell-glasses-make-iop-glasses
+    "." glasses-fun-compose
+    (save-excursion
+      (save-match-data
+        (when (re-search-backward (concat \( cid \) ) (line-beginning-position) t)
+          (let ((pse (match-end 1)))
+            (when (and pse (= pse sb))
+              (return))))))) beg end))
 
 (defun haskell-glasses-make-arrow-glasses (beg end)
   (funcall (haskell-glasses-make-iop-glasses "->" glasses-arrow-right) beg end)
@@ -519,17 +538,15 @@ CATEGORY is the overlay category."
                     (overlay-put os 'display glasses-logic-not)))))) beg end))
 
 (defun haskell-glasses-make-bottom-glasses (beg end)
-  (flet ((maker (sb se)
-          (let  ((os (haskell-glasses-make-overlay sb se 'glasses-bottom-undefined)))
-            (overlay-put os 'display glasses-bottom-undefined))))
-    (funcall (haskell-glasses-make-glasses vid-undefined
-              ((1 #'maker)
-               (2 #'maker))) beg end)))
+  (funcall (haskell-glasses-make-glasses vid-undefined
+            (((1 2) (lambda (sb se)
+                (let  ((os (haskell-glasses-make-overlay sb se 'glasses-bottom-undefined)))
+                  (overlay-put os 'display glasses-bottom-undefined)))))) beg end))
 
 (defun haskell-glasses-display-scholastic (beg end)
   "Make haskell code in the region from BEG to END scholastic."
-  (funcall haskell-glasses-make-subscript-glasses   beg end)
-  (funcall haskell-glasses-make-fun-compose-glasses beg end)
+  (haskell-glasses-make-subscript-glasses   beg end)
+  (haskell-glasses-make-fun-compose-glasses beg end)
   (haskell-glasses-make-lambda-glasses beg end)
   (haskell-glasses-make-arrow-glasses beg end)
   (haskell-glasses-make-equiv-glasses beg end)
