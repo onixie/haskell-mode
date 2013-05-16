@@ -350,7 +350,7 @@ CATEGORY is the overlay category."
 
 (defun iop (opreg)
   (concat
-   \( "[^[:punct:]]" | "[]}()_'\"]" \)
+   \( "[^[:punct:]]" | "[]}()_'\"]" \) "?"
    mid "?" \( (regexp-quote opreg) \)
    \( "[^[:punct:]]" | "[[{()_'\"]" \)
    ))
@@ -412,6 +412,7 @@ CATEGORY is the overlay category."
             (overlay-put os 'display `((height ,glasses-subscript-height)
                                        (raise ,glasses-subscript-raise)))))))))
 
+
 (defun haskell-glasses-find-lamb-dot (pos lim)
   (save-excursion
     (save-match-data
@@ -423,7 +424,8 @@ CATEGORY is the overlay category."
                          | \( "(" \)
                          | \( "\\[" \)
                          | \( "->" \)
-                         )))
+                         | "[@~.]"
+                         | \( "[[:punct:]]" \))))
           (while (re-search-forward r lim t)
             (let ((s (match-beginning 1))
                   (c (match-beginning 2))
@@ -431,22 +433,61 @@ CATEGORY is the overlay category."
                   (p (match-beginning 4))
                   (sp (match-beginning 5))
                   (ob (match-beginning 6))
-                  (oe (match-end 6)))
+                  (oe (match-end 6))
+                  (n (match-beginning 7)))
+              (when n
+                (return))
               (when (and ob oe)
                 (return (cons ob oe)))
               (let ((f (or s c b p sp)))
                 (when f (goto-char f)
                       (forward-sexp))))))))))
 
-(defvar haskell-glasses-make-lambda-glasses
-  (haskell-glasses-make-iop-glasses "\\" glasses-lambda-lambda
-   (save-excursion
-     (save-match-data
-       (goto-char sb)
-       (let ((d (haskell-glasses-find-lamb-dot sb (line-end-position))))
-         (when d
-           (let ((os (haskell-glasses-make-overlay (car d) (cdr d) 'glasses-lambda-dot)))
-             (overlay-put os 'display glasses-lambda-dot))))))))
+(defun haskell-glasses-find-lamb-lamb (pos lim)
+  (save-excursion
+    (save-match-data
+      (goto-char pos)
+      (block nil
+        (let ((r (concat \( "\"" \)
+                         | "[^[:alnum:]_']" \( "\'" \)
+                         | \( "}" \)
+                         | \( ")" \)
+                         | \( "\\]" \)
+                         | \( (iop "\\") \))))
+          (while (re-search-backward r lim t)
+            (let ((s (match-end 1))
+                  (c (match-end 2))
+                  (b (match-end 3))
+                  (p (match-end 4))
+                  (sp (match-end 5))
+                  (ob (match-beginning 6))
+                  (oe (match-end 6)))
+              (when (and ob oe)
+                (let ((d (haskell-glasses-find-lamb-dot oe (+ pos 2))))
+                  (if (and d (= pos (cdr d)))
+                      (return (cons ob oe))
+                    (return))))
+              (let ((f (or s c b p sp)))
+                (when f (goto-char f)
+                      (backward-sexp))))))))))
+
+(defun haskell-glasses-make-lambda-glasses (beg end)
+  (funcall
+   (haskell-glasses-make-iop-glasses
+    "\\" glasses-lambda-lambda
+    (save-excursion
+      (save-match-data
+        (goto-char sb)
+        (let ((d (haskell-glasses-find-lamb-dot se (point-max))))
+          (unless d (return)))))) beg end)
+  (funcall
+   (haskell-glasses-make-iop-glasses
+    "->" glasses-lambda-dot
+    (save-excursion
+      (save-match-data
+        (goto-char se)
+        (let ((d (haskell-glasses-find-lamb-lamb se (point-min))))
+          (unless d (return)))))) beg end))
 
 (defvar haskell-glasses-make-fun-compose-glasses
   (haskell-glasses-make-iop-glasses "." glasses-fun-compose
@@ -488,8 +529,8 @@ CATEGORY is the overlay category."
 (defun haskell-glasses-display-scholastic (beg end)
   "Make haskell code in the region from BEG to END scholastic."
   (funcall haskell-glasses-make-subscript-glasses   beg end)
-  (funcall haskell-glasses-make-lambda-glasses      beg end)
   (funcall haskell-glasses-make-fun-compose-glasses beg end)
+  (haskell-glasses-make-lambda-glasses beg end)
   (haskell-glasses-make-arrow-glasses beg end)
   (haskell-glasses-make-equiv-glasses beg end)
   (haskell-glasses-make-logic-glasses beg end)
@@ -518,7 +559,12 @@ CATEGORY is the overlay category."
 
 (defun haskell-glasses-change (beg end)
   "After-change function updating haskell glass overlays."
-  (let ((beg-line (save-excursion (goto-char beg) (line-beginning-position)))
+  (let ((beg-line (save-excursion
+                    (save-match-data
+                      (goto-char beg)
+                      (if (re-search-backward "^[^[:space:]\n]" (point-min) t)
+                          (point)
+                        (line-beginning-position)))))
 	(end-line (save-excursion (goto-char end) (line-end-position))))
     (haskell-glasses-display-normal beg-line end-line)
     (haskell-glasses-display-scholastic beg-line end-line)
