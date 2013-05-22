@@ -300,18 +300,24 @@ Used in :set parameter of some customized glasses variables."
 
 ;;; Glasses overlay
 
+(defvar haskell-glasses-predefined-list `((glasses-infix-operators nil)))
+
+(defun haskell-glasses-fix-overlay-cursor (overlay after beg end &optional length)
+  (if after (haskell-glasses-mode 1)
+    (haskell-glasses-mode -1)))
+
 (defun haskell-glasses-set-overlay-properties ()
   "Set properties of glasses overlays.
 Consider current setting of user variables."
-  (flet ((fix-eager-forward (overlay after beg end &optional length)
-            (if after (haskell-glasses-mode 1)
-              (haskell-glasses-mode -1))))
+  (flet ()
     (dolist (pg haskell-glasses-predefined-list)
       (put (car pg) 'face (cadr pg))
-      (put (car pg) 'insert-in-front-hooks (list #'fix-eager-forward)))
+      (put (car pg) 'insert-in-front-hooks
+           (list #'haskell-glasses-fix-overlay-cursor)))
     (dolist (io glasses-infix-operators)
       (put (car io) 'face (nth 4 io))
-      (put (car io) 'insert-in-front-hooks (list #'fix-eager-forward)))))
+      (put (car io) 'insert-in-front-hooks
+           (list #'haskell-glasses-fix-overlay-cursor)))))
 
 (defun haskell-glasses-overlay-p (overlay)
   "Return whether OVERLAY is an overlay of haskell glasses mode."
@@ -370,9 +376,9 @@ CATEGORY is the overlay category."
 
 (defun vid (varreg &optional trailing-blanks-p)
   (concat "\\(?1:\\<" (regexp-quote varreg) "\\>\\)"
-          (if trailing-blanks-p "\\(?3:[^'][[:blank:]]*\\)" "[^']")
+          (if trailing-blanks-p "\\(?3:[[:blank:]]+\\)" "[^'_]")
           |
-          "\\(?2:\\<" (regexp-quote varreg) "$\\)" ))
+          "\\(?2:\\<" (regexp-quote varreg) "\\)$" ))
 
 ;;; Regexp utilities
 
@@ -529,7 +535,7 @@ CATEGORY is the overlay category."
 
 ;;; Glasses defines
 
-(defvar haskell-glasses-predefined-list `((glasses-infix-operators nil)))
+
 
 (defmacro define-haskell-glasses (name mat tgl-p face makers)
   `(setq haskell-glasses-predefined-list
@@ -603,6 +609,7 @@ display hasekll code scholastic"
   (with-save
    (widen)
    (haskell-glasses-display-normal (point-min) (point-max))
+   (haskell-glasses-set-overlay-properties)
    (if haskell-glasses-mode
        (jit-lock-register 'haskell-glasses-display-change)
      (jit-lock-unregister 'haskell-glasses-display-change))))
