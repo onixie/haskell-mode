@@ -541,8 +541,8 @@ CATEGORY is the overlay category."
 (defmacro haskell-glasses-make-iop-glasses (mat gls tgl-p &rest body)
   `(haskell-glasses-make-glasses (iop ,mat) ,tgl-p
     (((1 2) (lambda (sb se)
+              (goto-char se)
               (with-save
-               (goto-char se)
                ,@body
                (unless (some #'haskell-glasses-overlay-p (overlays-at sb))
                  (let ((os (haskell-glasses-make-overlay sb se ,gls)))
