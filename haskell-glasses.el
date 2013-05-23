@@ -298,9 +298,31 @@ Used in :set parameter of some customized glasses variables."
      (save-match-data
        (block nil ,@body))))
 
+(defmacro awhen (test &rest body)
+  `(let ((it ,test))
+     (when it
+       ,@body)))
+
+(defmacro awhens (tests &rest body)
+  `(let ((them (list ,@tests)))
+     (when (every #'identity them)
+       ,@body)))
+
+(defmacro let-when (bindings &rest body)
+  `(let ,bindings
+     (when (and ,@(mapcar #'car bindings))
+       ,@body)))
+
+(defmacro aif (test conclusion &optional alternative)
+  `(let ((it ,test))
+     (if it
+         ,conclusion
+       ,alternative)))
+
 ;;; Glasses overlay
 
-(defvar haskell-glasses-predefined-list `((glasses-infix-operators nil)))
+(defvar haskell-glasses-predefined-list
+  `((glasses-lambda-dot ,glasses-lambda-face) (glasses-infix-operators nil)))
 
 (defun haskell-glasses-fix-overlay-cursor (overlay after beg end &optional length)
   (if after (haskell-glasses-mode 1)
@@ -347,7 +369,8 @@ CATEGORY is the overlay category."
 (defconst id2 "\\<\\(?:[[:alpha:]_]+\\)'*\\([[:digit:]]+\\)'*\\>")
 
 (defun qot (del)
-  (concat del \(?: "[^" del "\\]" | \(?: "[^\\]" | \(?: "\\\\\\\\" \) "*" \) "\\\\." \) "*" del | del \(?: "\\\\\\\\" \) "*" "\\\\." \(?: "[^" del "\\]" | \(?: "[^\\]" | \(?: "\\\\\\\\" \) "*" \) "\\\\." \) "*" del))
+  (concat del \(?: "[^" del "\\]" | \(?: "[^\\]" | \(?: "\\\\\\\\" \) "*" \) "\\\\." \) "*" del
+          | del \(?: "\\\\\\\\" \) "*" "\\\\." \(?: "[^" del "\\]" | \(?: "[^\\]" | \(?: "\\\\\\\\" \) "*" \) "\\\\." \) "*" del))
 (defconst str (qot "\""))
 (defconst chr (qot "'"))
 
@@ -380,66 +403,114 @@ CATEGORY is the overlay category."
           |
           "\\(?2:\\<" (regexp-quote varreg) "\\)$" ))
 
-;;; Regexp utilities
+;;; Glasses skips
 
-(defun haskell-glasses-find-lamb-dot (pos lim)
-  (with-save
-   (goto-char pos)
-   (let ((r (concat \( "\"" \) | "[^[:alnum:]_']" \( "\'" \)
-                    | \( "{" \) | \( "(" \) | \( "\\[" \)
-                    | \(?: (iop "->") \) ;Hey! I'm here.
-                    | "[@~.]" | \( "[[:punct:]]" \))))
-     (while (re-search-forward r lim t)
-       (when (match-beginning 8) (return))
-       (let ((f (or (match-beginning 1) (match-beginning 2) (match-beginning 3)
-                    (match-beginning 4) (match-beginning 5))))
-         (when f (goto-char f) (forward-sexp)))
-       (let ((ob (or (match-beginning 6) (match-beginning 7)))
-             (oe (or (match-end 6) (match-end 7))))
-         (when (and ob oe) (return (cons ob oe))))))))
+(defvar haskell-glasses-skip-list nil)
+(defun haskell-glasses-skip-list (&optional lim)
+  (labels ((escape-p (pos)
+              (let ((sls 0))
+                (while (and (<= sls pos)
+                            (char-equal ?\\ (char-before (- pos sls))))
+                  (setq sls (1+ sls)))
+                (oddp sls)))
+           (skip-quo (quo)
+             (with-save
+              (while (re-search-forward quo (point-max) t)
+                (unless (escape-p (1- (point))) 
+                  (return (point))))
+              (return (point-max))))
+           (skip-par (opn cls)
+             (with-save
+              (while (re-search-forward
+                      (concat \( opn \) | \( cls \))
+                      (point-max) t)
+                (if (match-beginning 2)
+                    (return (point))
+                  (awhen (skip-par opn cls)
+                         (goto-char it))))
+              (return (point-max))))
+           (skip-str () (skip-quo "\""))
+           (skip-chr () (skip-quo "\'"))
+           (skip-cmt () (skip-par "{-" "-}")))
+    (with-save
+     (goto-char (point-min))
+     (let ((r (concat \( "\"" \)
+                      | \( "{-" \)
+                      | lncmt
+                      | "[^[:alnum:]_']" \( "\'" \)
+                      |  \( "^\'" \)
+                      ))
+           (skips nil)
+           (lim (or lim (point-max))))
+       (while (and (<= (point) lim) (re-search-forward r lim t))
+         (awhen
+          (or
+           (awhens ((match-beginning 1) (skip-str)) them)
+           (awhens ((match-beginning 2) (skip-cmt)) them)
+           (awhens ((match-beginning 3) (match-end 3)) them)
+           (awhens ((or (match-beginning 4) (match-beginning 5)) (skip-chr)) them))
+          (goto-char (cadr it))
+          (setq skips (pushnew it skips))))
+       skips))))
 
-(defun haskell-glasses-find-lamb-lamb (pos lim)
+(defun haskell-glasses-skip-glasses-p (beg end)
   (with-save
-   (goto-char pos)
-   (let ((r (concat \( "\"" \) | "[^[:alnum:]_']" \( "\'" \)
-                    | \( "}" \) | \( ")" \) | \( "\\]" \)
-                    | \(?: (iop "\\") \)))) ;Hi! I'm here.
-     (while (re-search-backward r lim t)
-       (let ((b (or (match-end 1) (match-end 2) (match-end 3)
-                    (match-end 4) (match-end 5))))
-         (when b (goto-char b) (backward-sexp)))
-       (let ((ob (or (match-beginning 6)
-                     (match-beginning 7)))
-             (oe (or (match-end 6)
-                     (match-end 7))))
-         (when (and ob oe)
-           (let ((d (haskell-glasses-find-lamb-dot oe (+ pos 2))))
-             (if (and d (= pos (cdr d)))
-                 (return (cons ob oe))
-               (return)))))))))
+   (unless haskell-glasses-skip-list
+     (setq haskell-glasses-skip-list (haskell-glasses-skip-list)))
+   (dolist (area haskell-glasses-skip-list)
+     (when (or (and (<= (car area) beg) (< beg (cadr area)))
+               (and (< (car area) end) (<= end (cadr area))))
+       (return area)))))
 
-(defun haskell-glasses-skip-glasses (beg end)
-  (with-save
-   (goto-char (point-min))
-   (let ((r (concat \( "\"" \)
-                    | "[^[:alnum:]_']" \( "\'" \)
-                    | \( "{-" \)
-                    | lncmt )))
-     (while (re-search-forward r end t)
-       (let ((s (match-beginning 1))
-             (c (match-beginning 2))
-             (bc (match-beginning 3))
-             (lcb (match-beginning 4))
-             (lce (match-end 4)))
-         (when (and lcb (or (and (< lcb beg) (<= beg lce))
-                            (and (< lcb end) (<= end lce))))
-           (return t))
-         (let ((f (or s c bc)))
-           (when f (goto-char f)
-                 (forward-sexp)      ;Yep, sexp is black magic here.
-                 (when (or (and (< f beg) (<= beg (point)))
-                           (and (< f end) (<= end (point))))
-                   (return t)))))))))
+(defun haskell-glasses-find-lamb-dot (pos &optional lim)
+  (let ((lim (or lim (point-max)))
+        (args (concat \( "(" \) | \( "\\[" \) | \( "{" \)
+                      | \(?: (iop "->") \) ;Hey! I'm here.
+                      | "[#@~._'\"]" | ")" | "\\]" | "}"
+                      | \( "[[:punct:]]" \)))
+        (skips (remove-if (lambda (skip)
+                            (or (< (cadr skip) pos) (< lim (car skip))))
+                          haskell-glasses-skip-list)))
+    (labels ((skip-par (o c)
+                (with-save
+                 (while (re-search-forward
+                         (concat \( (regexp-quote o) \)
+                                 | \( (regexp-quote c) \)) lim t)
+                   (awhen (or (awhens ((match-beginning 1) (match-end 1)) them)
+                              (awhens ((match-beginning 2) (match-end 2)) them))
+                          (let ((dot it))
+                            (aif (haskell-glasses-skip-glasses-p (car dot) (cadr dot))
+                                 (goto-char (1- (cadr it)))
+                                 (if (match-beginning 2)
+                                     (return (cadr dot))
+                                   (awhen (skip-par o c) (goto-char it)))))))
+                 (return lim)))
+             (skip-tpl () (skip-par "(" ")"))
+             (skip-lst () (skip-par "[" "]"))
+             (skip-rcd () (skip-par "{" "}")))
+      (with-save
+       (goto-char pos)
+       (while (and (<= (point) lim) (re-search-forward args lim t))
+         (awhen (or
+                 (awhens ((match-beginning 1) (match-end 1)) them)
+                 (awhens ((match-beginning 2) (match-end 2)) them)
+                 (awhens ((match-beginning 3) (match-end 3)) them)
+                 (awhens ((match-beginning 4) (match-end 4)) them)
+                 (awhens ((match-beginning 5) (match-end 5)) them)
+                 (awhens ((match-beginning 6) (match-end 6)) them))
+                (aif (haskell-glasses-skip-glasses-p (car it) (cadr it))
+                     (goto-char (1- (cadr it)))
+                     (progn
+                       (when (match-beginning 6) (return))
+                       (awhen (or
+                               (awhens ((match-beginning 1) (skip-tpl)) them)
+                               (awhens ((match-beginning 2) (skip-lst)) them)
+                               (awhens ((match-beginning 3) (skip-rcd)) them))
+                              (goto-char (1- (cadr it))))
+                       (awhen (or
+                               (awhens ((match-beginning 4) (match-end 4)) them)
+                               (awhens ((match-beginning 5) (match-end 5)) them))
+                              (return it))))))))))
 
 ;;; Glasses makers
 
@@ -455,14 +526,14 @@ CATEGORY is the overlay category."
                  (if (atom (car m))
                      `(let ((sb (match-beginning ,(car m)))
                             (se (match-end ,(car m))))
-                        (when (and sb se (not (haskell-glasses-skip-glasses sb se))) 
+                        (when (and sb se (not (haskell-glasses-skip-glasses-p sb se))) 
                           (funcall ,(cadr m) sb se)))
                    `(progn
                       ,@(mapcar
                          (lambda (n)
                            `(let  ((sb (match-beginning ,n))
                                    (se (match-end ,n)))
-                              (when (and sb se (not (haskell-glasses-skip-glasses sb se))) 
+                              (when (and sb se (not (haskell-glasses-skip-glasses-p sb se))) 
                                 (funcall ,(cadr m) sb se))))
                          (car m)))))
                makers)))))))
@@ -508,6 +579,7 @@ CATEGORY is the overlay category."
 
 (defun haskell-glasses-display-normal (beg end)
   "Display code in the region from BEG to END to their normal state."
+  (setq haskell-glasses-skip-list nil)
   (dolist (o (overlays-in beg end))
     (when (haskell-glasses-overlay-p o)
       (delete-overlay o))))
@@ -534,8 +606,6 @@ CATEGORY is the overlay category."
     (haskell-glasses-display-normal-cpp beg-line end-line)))
 
 ;;; Glasses defines
-
-
 
 (defmacro define-haskell-glasses (name mat tgl-p face makers)
   `(setq haskell-glasses-predefined-list
@@ -579,13 +649,10 @@ CATEGORY is the overlay category."
 
 (define-haskell-iop-glasses glasses-lambda-lambda "\\" glasses-lambda-p glasses-lambda-face
   (goto-char sb)
-  (unless (haskell-glasses-find-lamb-dot se (point-max))
-    (return)))
-
-(define-haskell-iop-glasses glasses-lambda-dot "->" glasses-lambda-p glasses-lambda-face
-  (goto-char se)
-  (unless (haskell-glasses-find-lamb-lamb se (point-min))
-    (return)))
+  (aif (haskell-glasses-find-lamb-dot se (point-max))
+       (let  ((os (haskell-glasses-make-overlay (car it) (cadr it) 'glasses-lambda-dot)))
+         (overlay-put os 'display glasses-lambda-dot))
+       (return)))
 
 (define-haskell-glasses glasses-subscript (if glasses-subscript-inhibit-mix-case-p id1 id2)
   glasses-subscript-p glasses-subscript-face
