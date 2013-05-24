@@ -34,6 +34,8 @@
 
 ;;; Code:
 
+(require 'cl)
+
 ;;; User variables
 
 (defgroup haskell-glasses nil
@@ -303,11 +305,11 @@ Used in :set parameter of some customized glasses variables."
      (when it
        ,@body)))
 
-(defmacro aif (test conclusion &optional alternative)
+(defmacro aif (test conclusion &rest alternatives)
   `(let ((it ,test))
      (if it
          ,conclusion
-       ,alternative)))
+       ,@alternatives)))
 
 (defmacro list-every (&rest list)
   (when list
@@ -320,6 +322,25 @@ Used in :set parameter of some customized glasses variables."
      (let ((them (list-every ,@tests)))
        (when them
          ,@body))))
+
+(defmacro achoose (tests &rest body)
+  `(awhen
+    (or
+     ,@(mapcar (lambda (test)
+                 `(awhens ,(if (atom test)
+                               `(,test)
+                             test) them)) tests))
+    ,@body))
+
+(defmacro awhile (test &rest body)
+  (let ((break (gensym "wb"))
+        (continue (gensym "wc")))
+    `(flet ((break (&optional res) (return-from ,break res))
+            (continue () (return-from ,continue)))
+       (block ,break
+         (while ,test
+           (block ,continue
+             ,@body))))))
 
 ;;; Glasses overlay
 
@@ -445,12 +466,10 @@ CATEGORY is the overlay category."
            (skips nil)
            (lim (or lim (point-max))))
        (while (and (<= (point) lim) (re-search-forward r lim t))
-         (awhen
-          (or
-           (awhens ((match-beginning 1) (skip-str)) them)
-           (awhens ((match-beginning 2) (skip-cmt)) them)
-           (awhens ((match-beginning 3) (match-end 3)) them)
-           (awhens ((or (match-beginning 4) (match-beginning 5)) (skip-chr)) them))
+         (achoose (((match-beginning 1) (skip-str))
+                   ((match-beginning 2) (skip-cmt))
+                   ((match-beginning 3) (match-end 3))
+                   ((or (match-beginning 4) (match-beginning 5)) (skip-chr)))
           (goto-char (cadr it))
           (setq skips (pushnew it skips))))
        skips))))
@@ -478,14 +497,14 @@ CATEGORY is the overlay category."
                  (while (re-search-forward
                          (concat \( (regexp-quote o) \)
                                  | \( (regexp-quote c) \)) lim t)
-                   (awhen (or (awhens ((match-beginning 1) (match-end 1)) them)
-                              (awhens ((match-beginning 2) (match-end 2)) them))
-                          (let ((dot it))
-                            (aif (haskell-glasses-skip-glasses-p (car dot) (cadr dot))
-                                 (goto-char (1- (cadr it)))
-                                 (if (match-beginning 2)
-                                     (return (cadr dot))
-                                   (awhen (skip-par o c) (goto-char it)))))))
+                   (achoose (((match-beginning 1) (match-end 1))
+                             ((match-beginning 2) (match-end 2)))
+                    (let ((dot it))
+                      (aif (haskell-glasses-skip-glasses-p (car dot) (cadr dot))
+                           (goto-char (1- (cadr it)))
+                           (if (match-beginning 2)
+                               (return (cadr dot))
+                             (awhen (skip-par o c) (goto-char it)))))))
                  (return lim)))
              (skip-tpl () (skip-par "(" ")"))
              (skip-lst () (skip-par "[" "]"))
@@ -493,26 +512,22 @@ CATEGORY is the overlay category."
       (with-save
        (goto-char pos)
        (while (and (<= (point) lim) (re-search-forward args lim t))
-         (awhen (or
-                 (awhens ((match-beginning 1) (match-end 1)) them)
-                 (awhens ((match-beginning 2) (match-end 2)) them)
-                 (awhens ((match-beginning 3) (match-end 3)) them)
-                 (awhens ((match-beginning 4) (match-end 4)) them)
-                 (awhens ((match-beginning 5) (match-end 5)) them)
-                 (awhens ((match-beginning 6) (match-end 6)) them))
-                (aif (haskell-glasses-skip-glasses-p (car it) (cadr it))
+         (achoose (((match-beginning 1) (match-end 1))
+                   ((match-beginning 2) (match-end 2))
+                   ((match-beginning 3) (match-end 3))
+                   ((match-beginning 4) (match-end 4))
+                   ((match-beginning 5) (match-end 5))
+                   ((match-beginning 6) (match-end 6)))
+                  (aif (haskell-glasses-skip-glasses-p (car it) (cadr it))
                      (goto-char (1- (cadr it)))
-                     (progn
-                       (when (match-beginning 6) (return))
-                       (awhen (or
-                               (awhens ((match-beginning 1) (skip-tpl)) them)
-                               (awhens ((match-beginning 2) (skip-lst)) them)
-                               (awhens ((match-beginning 3) (skip-rcd)) them))
-                              (goto-char (1- (cadr it))))
-                       (awhen (or
-                               (awhens ((match-beginning 4) (match-end 4)) them)
-                               (awhens ((match-beginning 5) (match-end 5)) them))
-                              (return it))))))))))
+                     (when (match-beginning 6) (return))
+                     (achoose (((match-beginning 1) (skip-tpl))
+                               ((match-beginning 2) (skip-lst))
+                               ((match-beginning 3) (skip-rcd)))
+                      (goto-char (1- (cadr it))))
+                     (achoose (((match-beginning 4) (match-end 4))
+                               ((match-beginning 5) (match-end 5)))
+                      (return it)))))))))
 
 ;;; Glasses makers
 
