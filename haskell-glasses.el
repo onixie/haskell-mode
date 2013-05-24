@@ -461,7 +461,8 @@ CATEGORY is the overlay category."
                       | \( "{-" \)
                       | lncmt
                       | "[^[:alnum:]_']" \( "\'" \)
-                      |  \( "^\'" \)
+                      | \( "^\'" \)
+                      | \( "^#.*$"\)
                       ))
            (skips nil)
            (lim (or lim (point-max))))
@@ -469,7 +470,8 @@ CATEGORY is the overlay category."
          (achoose (((match-beginning 1) (skip-str))
                    ((match-beginning 2) (skip-cmt))
                    ((match-beginning 3) (match-end 3))
-                   ((or (match-beginning 4) (match-beginning 5)) (skip-chr)))
+                   ((or (match-beginning 4) (match-beginning 5)) (skip-chr))
+                   ((match-beginning 6) (match-end 6)))
           (goto-char (cadr it))
           (setq skips (pushnew it skips))))
        skips))))
@@ -601,16 +603,6 @@ CATEGORY is the overlay category."
     (when (haskell-glasses-overlay-p o)
       (delete-overlay o))))
 
-(defun haskell-glasses-display-normal-cpp (beg end)
-  "Display cpp code in the region from BEG to END to their normal state."
-  (with-save
-   (goto-char beg)
-   (while (<= (line-end-position) end)
-     (goto-char (line-beginning-position))
-     (when (and (current-word) (char-equal ?# (string-to-char (current-word))))
-       (haskell-glasses-display-normal (line-beginning-position) (line-end-position)))
-     (next-line))))
-
 (defun haskell-glasses-display-change (beg end)
   "After-change function updating haskell glass overlays."
   (let ((beg-line (with-save (goto-char beg)
@@ -619,8 +611,7 @@ CATEGORY is the overlay category."
              (line-beginning-position))))
 	(end-line (with-save (goto-char end) (line-end-position))))
     (haskell-glasses-display-normal beg-line end-line)
-    (haskell-glasses-display-scholastic beg-line end-line)
-    (haskell-glasses-display-normal-cpp beg-line end-line)))
+    (haskell-glasses-display-scholastic beg-line end-line)))
 
 ;;; Glasses defines
 
