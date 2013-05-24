@@ -345,7 +345,7 @@ Used in :set parameter of some customized glasses variables."
 ;;; Glasses overlay
 
 (defvar haskell-glasses-predefined-list
-  `((glasses-lambda-dot ,glasses-lambda-face) (glasses-infix-operators nil)))
+  `((glasses-infix-operators nil)))
 
 (defun haskell-glasses-after-change-function (beg end len)
   (haskell-glasses-mode 1)
@@ -663,7 +663,7 @@ CATEGORY is the overlay category."
 (define-haskell-iop-glasses glasses-lambda-lambda "\\" glasses-lambda-p glasses-lambda-face
   (goto-char sb)
   (aif (haskell-glasses-find-lamb-dot se (point-max))
-       (let  ((os (haskell-glasses-make-overlay (car it) (cadr it) 'glasses-lambda-dot)))
+       (let  ((os (haskell-glasses-make-overlay (car it) (cadr it) 'glasses-lambda-lambda)))
          (overlay-put os 'display glasses-lambda-dot))
        (return)))
 
