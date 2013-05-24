@@ -303,21 +303,23 @@ Used in :set parameter of some customized glasses variables."
      (when it
        ,@body)))
 
-(defmacro awhens (tests &rest body)
-  `(let ((them (list ,@tests)))
-     (when (every #'identity them)
-       ,@body)))
-
-(defmacro let-when (bindings &rest body)
-  `(let ,bindings
-     (when (and ,@(mapcar #'car bindings))
-       ,@body)))
-
 (defmacro aif (test conclusion &optional alternative)
   `(let ((it ,test))
      (if it
          ,conclusion
        ,alternative)))
+
+(defmacro list-every (&rest list)
+  (when list
+    `(aif ,(car list)
+          (cons it (list-every ,@(cdr list)))
+          (return nil))))
+
+(defmacro awhens (tests &rest body)
+  `(block nil
+     (let ((them (list-every ,@tests)))
+       (when them
+         ,@body))))
 
 ;;; Glasses overlay
 
