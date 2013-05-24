@@ -347,9 +347,14 @@ Used in :set parameter of some customized glasses variables."
 (defvar haskell-glasses-predefined-list
   `((glasses-lambda-dot ,glasses-lambda-face) (glasses-infix-operators nil)))
 
+(defun haskell-glasses-after-change-function (beg end len)
+  (haskell-glasses-mode 1)
+  (remove-hook 'after-change-functions #'haskell-glasses-after-change-function t))
+
 (defun haskell-glasses-fix-overlay-cursor (overlay after beg end &optional length)
   (if after (haskell-glasses-mode 1)
-    (haskell-glasses-mode -1)))
+    (haskell-glasses-mode -1)
+    (add-hook 'after-change-functions #'haskell-glasses-after-change-function nil t)))
 
 (defun haskell-glasses-set-overlay-properties ()
   "Set properties of glasses overlays.
