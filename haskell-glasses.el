@@ -65,13 +65,10 @@
   :set 'haskell-glasses-custom-set
   :initialize 'custom-initialize-default)
 
-(defcustom glasses-lambda-face nil
+(defface glasses-lambda-face nil
   "Face to be put on lambda abstractions.
 If it is nil, no face is placed at the lambda abstractions. "
-  :group 'haskell-glasses
-  :type '(choice (const :tag "None" nil) face)
-  :set 'haskell-glasses-custom-set
-  :initialize 'custom-initialize-default)
+  :group 'haskell-glasses)
 
 (defcustom glasses-arrow-p t
   "Display type annotation scholastic"
@@ -101,13 +98,10 @@ If it is nil, no face is placed at the lambda abstractions. "
   :set 'haskell-glasses-custom-set
   :initialize 'custom-initialize-default)
 
-(defcustom glasses-arrow-face nil
+(defface glasses-arrow-face nil
   "Face to be put on type annotations.
 If it is nil, no face is placed at the lambda abstractions. "
-  :group 'haskell-glasses
-  :type '(choice (const :tag "None" nil) face)
-  :set 'haskell-glasses-custom-set
-  :initialize 'custom-initialize-default)
+  :group 'haskell-glasses)
 
 (defcustom glasses-equiv-p t
   "Display equivalance declaration scholastic"
@@ -151,13 +145,10 @@ If it is nil, no face is placed at the lambda abstractions. "
   :set 'haskell-glasses-custom-set
   :initialize 'custom-initialize-default)
 
-(defcustom glasses-equiv-face nil
+(defface glasses-equiv-face nil
   "Face to be put on equivalance declaration.
 If it is nil, no face is placed at the lambda abstractions. "
-  :group 'haskell-glasses
-  :type '(choice (const :tag "None" nil) face)
-  :set 'haskell-glasses-custom-set
-  :initialize 'custom-initialize-default)
+  :group 'haskell-glasses)
 
 (defcustom glasses-subscript-p t
   "Display t1 as t₁ , A1 as A₁."
@@ -173,13 +164,10 @@ If it is nil, no face is placed at the lambda abstractions. "
   :set 'haskell-glasses-custom-set
   :initialize 'custom-initialize-default)
 
-(defcustom glasses-subscript-face nil
+(defface glasses-subscript-face nil
   "Face to be put on subscript.
 If it is nil, no face is placed at the lambda abstractions. "
-  :group 'haskell-glasses
-  :type '(choice (const :tag "None" nil) face)
-  :set 'haskell-glasses-custom-set
-  :initialize 'custom-initialize-default)
+  :group 'haskell-glasses)
 
 (defcustom glasses-subscript-height 0.75
   "Height of the subscript number. "
@@ -209,13 +197,10 @@ If it is nil, no face is placed at the lambda abstractions. "
   :set 'haskell-glasses-custom-set
   :initialize 'custom-initialize-default)
 
-(defcustom glasses-fun-compose-face nil
+(defface glasses-fun-compose-face nil
   "Face to be put on function composition
 If it is nil, no face is placed at the function composition. "
-  :group 'haskell-glasses
-  :type '(choice (const :tag "None" nil) face)
-  :set 'haskell-glasses-custom-set
-  :initialize 'custom-initialize-default)
+  :group 'haskell-glasses)
 
 (defcustom glasses-logic-p t
   "Display logic op scholastic"
@@ -245,13 +230,10 @@ If it is nil, no face is placed at the function composition. "
   :set 'haskell-glasses-custom-set
   :initialize 'custom-initialize-default)
 
-(defcustom glasses-logic-face nil
+(defface glasses-logic-face nil
   "Face to be put on lambda abstractions.
 If it is nil, no face is placed at the lambda abstractions. "
-  :group 'haskell-glasses
-  :type '(choice (const :tag "None" nil) face)
-  :set 'haskell-glasses-custom-set
-  :initialize 'custom-initialize-default)
+  :group 'haskell-glasses)
 
 (defcustom glasses-bottom-p t
   "Display undefined scholastic"
@@ -267,13 +249,10 @@ If it is nil, no face is placed at the lambda abstractions. "
   :set 'haskell-glasses-custom-set
   :initialize 'custom-initialize-default)
 
-(defcustom glasses-bottom-face nil
+(defface glasses-bottom-face nil
   "Face to be put on bottom.
 If it is nil, no face is placed at bottom."
-  :group 'haskell-glasses
-  :type '(choice (const :tag "None" nil) face)
-  :set 'haskell-glasses-custom-set
-  :initialize 'custom-initialize-default)
+  :group 'haskell-glasses)
 
 (defcustom glasses-infix-operators nil
   "Display glasses of all other infix operators"
@@ -622,19 +601,19 @@ CATEGORY is the overlay category."
 
 (defmacro define-haskell-glasses (name mat tgl-p face makers)
   `(setq haskell-glasses-predefined-list
-         (pushnew (list ',name ,face) haskell-glasses-predefined-list)
+         (pushnew (list ',name ',face) haskell-glasses-predefined-list)
          haskell-glasses-display-list
          (pushnew (haskell-glasses-make-glasses ,mat ,tgl-p ,makers) haskell-glasses-display-list)))
 
 (defmacro define-haskell-iop-glasses (name mat tgl-p face &rest body)
   `(setq haskell-glasses-predefined-list
-         (pushnew (list ',name ,face) haskell-glasses-predefined-list)
+         (pushnew (list ',name ',face) haskell-glasses-predefined-list)
          haskell-glasses-display-list
          (pushnew (haskell-glasses-make-iop-glasses ,mat ',name ,tgl-p ,@body) haskell-glasses-display-list)))
 
 (defmacro define-haskell-vid-glasses (name mat tgl-p face tbk &rest body)
   `(setq haskell-glasses-predefined-list
-         (pushnew (list ',name ,face) haskell-glasses-predefined-list)
+         (pushnew (list ',name ',face) haskell-glasses-predefined-list)
          haskell-glasses-display-list
          (pushnew (haskell-glasses-make-vid-glasses ,mat ',name ,tgl-p ,tbk ,@body) haskell-glasses-display-list)))
 
