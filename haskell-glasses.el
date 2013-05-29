@@ -254,12 +254,12 @@ If it is nil, no face is placed at the lambda abstractions. "
 If it is nil, no face is placed at bottom."
   :group 'haskell-glasses)
 
-(defcustom glasses-infix-operators nil
-  "Display glasses of all other infix operators"
+(defcustom glasses-user-defined-glasses nil
+  "Display user defined glasses"
   :group 'haskell-glasses
-  :type '(alist :key-type symbol
-                :value-type (group string string
-                                   boolean (choice (const :tag "None" nil) face)))
+  :type '(alist :key-type (string :tag "Name")
+                :value-type (group (string :tag "Glass") (boolean :tag "Infix operator P")
+                                   (boolean :tag "Enable P") (choice :tag "Face"(const :tag "None" nil) face)))
   :set 'haskell-glasses-custom-set
   :initialize 'custom-initialize-default)
 
@@ -321,10 +321,22 @@ Used in :set parameter of some customized glasses variables."
            (block ,continue
              ,@body))))))
 
+(defun symbolize (&rest things)
+  (flet ((ensure-string (thing)
+                        (cond  ((symbolp thing) (symbol-name thing))
+                               ((numberp thing) (number-to-string thing))
+                               ((characterp thing) (char-to-string thing))
+                               ((stringp thing) thing)
+                               (t (symbol-name (gensym))))))
+    (intern (apply #'concat (mapcar #'ensure-string things)))))
+
+(defun haskell-glasses-make-user-glasses-symbol (name)
+  (symbolize "glasses-" name))
+
 ;;; Glasses overlay
 
 (defvar haskell-glasses-predefined-list
-  `((glasses-infix-operators nil)))
+  `((glasses-user-defined-glasses nil)))
 
 (defun haskell-glasses-after-change-function (beg end len)
   (haskell-glasses-mode 1)
@@ -343,16 +355,17 @@ Consider current setting of user variables."
       (put (car pg) 'face (cadr pg))
       (put (car pg) 'insert-in-front-hooks
            (list #'haskell-glasses-fix-overlay-cursor)))
-    (dolist (io glasses-infix-operators)
-      (put (car io) 'face (nth 4 io))
-      (put (car io) 'insert-in-front-hooks
-           (list #'haskell-glasses-fix-overlay-cursor)))))
+    (dolist (io glasses-user-defined-glasses)
+      (let ((gls (haskell-glasses-make-user-glasses-symbol (car io))))
+        (put gls 'face (nth 5 io))
+        (put gls 'insert-in-front-hooks
+             (list #'haskell-glasses-fix-overlay-cursor))))))
 
 (defun haskell-glasses-overlay-p (overlay)
   "Return whether OVERLAY is an overlay of haskell glasses mode."
   (let ((cat (overlay-get overlay 'category))) 
     (or (assoc cat haskell-glasses-predefined-list)
-        (assoc cat glasses-infix-operators))))
+        (memq cat (mapcar (lambda (io) (haskell-glasses-make-user-glasses-symbol (car io))) glasses-user-defined-glasses)))))
 
 (defun haskell-glasses-make-overlay (beg end category)
   "Create and return scholastic overlay over the region from BEG to END.
@@ -571,14 +584,17 @@ CATEGORY is the overlay category."
 (defun haskell-glasses-display-scholastic (beg end)
   "Make haskell code in the region from BEG to END scholastic."
   (map nil (lambda (f) (funcall f beg end)) haskell-glasses-display-list)
-  (dolist (io glasses-infix-operators)
-    (let ((sym (nth 0 io))
-          (inf (nth 1 io))
-          (gls (nth 2 io))
-          (tgl (nth 3 io)))
+  (dolist (io glasses-user-defined-glasses)
+    (let* ((nam (nth 0 io))
+           (sym (haskell-glasses-make-user-glasses-symbol nam))
+           (gls (nth 1 io))
+           (iop (nth 2 io))
+           (tgl (nth 3 io)))
       (when tgl
         (set sym gls)
-        (funcall (haskell-glasses-make-iop-glasses inf sym tgl) beg end)))))
+        (if iop
+            (funcall (haskell-glasses-make-iop-glasses nam sym tgl) beg end)
+          (funcall (haskell-glasses-make-vid-glasses nam sym tgl nil) beg end))))))
 
 (defun haskell-glasses-display-normal (beg end)
   "Display code in the region from BEG to END to their normal state."
