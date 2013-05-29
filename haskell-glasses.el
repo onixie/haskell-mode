@@ -39,204 +39,198 @@
 ;;; User variables
 
 (defgroup haskell-glasses nil
-  "Make haskell code scholastic"
+  "Display haskell code scholastic."
   :version "0.1"
   :group 'haskell
   :prefix 'haskell-glasses)
 
 (defcustom glasses-lambda-p t
-  "Display lambda abstraction scholastic"
+  "Display lambda abstraction scholastic."
   :group 'haskell-glasses
   :type 'boolean
   :set 'haskell-glasses-custom-set
   :initialize 'custom-initialize-default)
 
 (defcustom glasses-lambda-lambda "λ"
-  "Display (\\x -> x) as (λx -> x)"
+  "Display (\\x -> x) as (λx -> x)."
   :group 'haskell-glasses
   :type 'string
   :set 'haskell-glasses-custom-set
   :initialize 'custom-initialize-default)
 
 (defcustom glasses-lambda-dot "."
-  "Display (\\x -> x) as (\\x . x)"
+  "Display (\\x -> x) as (\\x . x)."
   :group 'haskell-glasses
   :type 'string
   :set 'haskell-glasses-custom-set
   :initialize 'custom-initialize-default)
 
 (defface glasses-lambda-face nil
-  "Face to be put on lambda abstractions.
-If it is nil, no face is placed at the lambda abstractions. "
+  "Face to be put on lambda abstraction."
   :group 'haskell-glasses)
 
 (defcustom glasses-arrow-p t
-  "Display type annotation scholastic"
+  "Display arrow scholastic."
   :group 'haskell-glasses
   :type 'boolean
   :set 'haskell-glasses-custom-set
   :initialize 'custom-initialize-default)
 
 (defcustom glasses-arrow-right "→"
-  "Display a -> b as a → b"
+  "Display a -> b as a → b."
   :group 'haskell-glasses
   :type 'string
   :set 'haskell-glasses-custom-set
   :initialize 'custom-initialize-default)
 
 (defcustom glasses-arrow-left "←"
-  "Display a <- b as a ← b"
+  "Display a <- b as a ← b."
   :group 'haskell-glasses
   :type 'string
   :set 'haskell-glasses-custom-set
   :initialize 'custom-initialize-default)
 
 (defcustom glasses-arrow-double-right "⇒"
-  "Display C a => a as C a ⇒ a"
+  "Display C a => a as C a ⇒ a."
   :group 'haskell-glasses
   :type 'string
   :set 'haskell-glasses-custom-set
   :initialize 'custom-initialize-default)
 
 (defface glasses-arrow-face nil
-  "Face to be put on type annotations.
-If it is nil, no face is placed at the lambda abstractions. "
+  "Face to be put on arrow."
   :group 'haskell-glasses)
 
 (defcustom glasses-equiv-p t
-  "Display equivalance declaration scholastic"
+  "Display declaration and equal test scholastic."
   :group 'haskell-glasses
   :type 'boolean
   :set 'haskell-glasses-custom-set
   :initialize 'custom-initialize-default)
 
-(defcustom glasses-equiv-equiv "≡"
-  "Display declaration a = b as a ≡ b"
+(defcustom glasses-equiv-decl "≡"
+  "Display declaration a = b as a ≡ b."
   :group 'haskell-glasses
   :type 'string
   :set 'haskell-glasses-custom-set
   :initialize 'custom-initialize-default)
 
 (defcustom glasses-equiv-equal "="
-  "Display equal test a == b as a = b"
+  "Display equal test a == b as a = b."
   :group 'haskell-glasses
   :type 'string
   :set 'haskell-glasses-custom-set
   :initialize 'custom-initialize-default)
 
 (defcustom glasses-equiv-not-equal "≠"
-  "Display equal test a /= b as a ≠ b"
+  "Display equal test a /= b as a ≠ b."
   :group 'haskell-glasses
   :type 'string
   :set 'haskell-glasses-custom-set
   :initialize 'custom-initialize-default)
 
 (defcustom glasses-equiv-greater-equal "≥"
-  "Display equal test a >= b as a ≥ b"
+  "Display equal test a >= b as a ≥ b."
   :group 'haskell-glasses
   :type 'string
   :set 'haskell-glasses-custom-set
   :initialize 'custom-initialize-default)
 
 (defcustom glasses-equiv-less-equal "≤"
-  "Display equal test a <= b as a ≤ b"
+  "Display equal test a <= b as a ≤ b."
   :group 'haskell-glasses
   :type 'string
   :set 'haskell-glasses-custom-set
   :initialize 'custom-initialize-default)
 
 (defface glasses-equiv-face nil
-  "Face to be put on equivalance declaration.
-If it is nil, no face is placed at the lambda abstractions. "
+  "Face to be put on declaration and equal test."
   :group 'haskell-glasses)
 
 (defcustom glasses-subscript-p t
-  "Display t1 as t₁ , A1 as A₁."
+  "Display index-suffixed identifier scholastic, eg. tt1 as tt₁."
   :group 'haskell-glasses
   :type 'boolean
   :set 'haskell-glasses-custom-set
   :initialize 'custom-initialize-default)
 
 (defcustom glasses-subscript-inhibit-mix-case-p t
-  "Display Tt1 as Tt1 but TT1 as TT₁."
+  "Display mix-cased identifier normal, eq. tT1 as tT1."
   :group 'haskell-glasses
   :type 'boolean
   :set 'haskell-glasses-custom-set
   :initialize 'custom-initialize-default)
 
 (defface glasses-subscript-face nil
-  "Face to be put on subscript.
-If it is nil, no face is placed at the lambda abstractions. "
+  "Face to be put on suffixing index numbers."
   :group 'haskell-glasses)
 
 (defcustom glasses-subscript-height 0.75
-  "Height of the subscript number. "
+  "Height of suffixing index number."
   :group 'haskell-glasses
   :type 'number
   :set 'haskell-glasses-custom-set
   :initialize 'custom-initialize-default)
 
 (defcustom glasses-subscript-raise 0
-  "Raise of the subscript number. "
+  "Raise of suffixing index number."
   :group 'haskell-glasses
   :type 'number
   :set 'haskell-glasses-custom-set
   :initialize 'custom-initialize-default)
 
 (defcustom glasses-fun-compose-p t
-  "Display function composition scholastic"
+  "Display function composition scholastic."
   :group 'haskell-glasses
   :type 'boolean
   :set 'haskell-glasses-custom-set
   :initialize 'custom-initialize-default)
 
 (defcustom glasses-fun-compose "∘"
-  "Display f . g as f ∘ g"
+  "Display f . g as f ∘ g."
   :group 'haskell-glasses
   :type 'string
   :set 'haskell-glasses-custom-set
   :initialize 'custom-initialize-default)
 
 (defface glasses-fun-compose-face nil
-  "Face to be put on function composition
-If it is nil, no face is placed at the function composition. "
+  "Face to be put on function composition."
   :group 'haskell-glasses)
 
 (defcustom glasses-logic-p t
-  "Display logic op scholastic"
+  "Display boolean operation scholastic."
   :group 'haskell-glasses
   :type 'boolean
   :set 'haskell-glasses-custom-set
   :initialize 'custom-initialize-default)
 
 (defcustom glasses-logic-and "∧"
-  "Display A && B as A ∧ B"
+  "Display A && B as A ∧ B."
   :group 'haskell-glasses
   :type 'string
   :set 'haskell-glasses-custom-set
   :initialize 'custom-initialize-default)
 
 (defcustom glasses-logic-or "∨"
-  "Display A || B as A ∨ B"
+  "Display A || B as A ∨ B."
   :group 'haskell-glasses
   :type 'string
   :set 'haskell-glasses-custom-set
   :initialize 'custom-initialize-default)
 
 (defcustom glasses-logic-not "¬"
-  "Display not A as ¬A"
+  "Display not A as ¬A."
   :group 'haskell-glasses
   :type 'string
   :set 'haskell-glasses-custom-set
   :initialize 'custom-initialize-default)
 
 (defface glasses-logic-face nil
-  "Face to be put on lambda abstractions.
-If it is nil, no face is placed at the lambda abstractions. "
+  "Face to be put on boolean operation."
   :group 'haskell-glasses)
 
 (defcustom glasses-bottom-p t
-  "Display undefined scholastic"
+  "Display bottom scholastic"
   :group 'haskell-glasses
   :type 'boolean
   :set 'haskell-glasses-custom-set
@@ -250,12 +244,11 @@ If it is nil, no face is placed at the lambda abstractions. "
   :initialize 'custom-initialize-default)
 
 (defface glasses-bottom-face nil
-  "Face to be put on bottom.
-If it is nil, no face is placed at bottom."
+  "Face to be put on bottom."
   :group 'haskell-glasses)
 
 (defcustom glasses-user-defined-glasses nil
-  "Display user defined glasses"
+  "Display user-defined names scholastic."
   :group 'haskell-glasses
   :type '(alist :key-type (string :tag "Name")
                 :value-type (group (string :tag "Glass") (boolean :tag "Infix operator P")
@@ -643,7 +636,7 @@ CATEGORY is the overlay category."
 (define-haskell-iop-glasses glasses-equiv-not-equal     "/="        glasses-equiv-p  glasses-equiv-face)
 (define-haskell-iop-glasses glasses-equiv-greater-equal ">="        glasses-equiv-p  glasses-equiv-face)
 (define-haskell-iop-glasses glasses-equiv-less-equal    "<="        glasses-equiv-p  glasses-equiv-face)
-(define-haskell-iop-glasses glasses-equiv-equiv         "="         glasses-equiv-p  glasses-equiv-face)
+(define-haskell-iop-glasses glasses-equiv-decl          "="         glasses-equiv-p  glasses-equiv-face)
 (define-haskell-iop-glasses glasses-logic-and           "&&"        glasses-logic-p  glasses-logic-face)
 (define-haskell-iop-glasses glasses-logic-or            "||"        glasses-logic-p  glasses-logic-face)
 (define-haskell-vid-glasses glasses-logic-not           "not"       glasses-logic-p  glasses-logic-face    t)
