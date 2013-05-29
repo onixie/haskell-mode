@@ -378,8 +378,8 @@ CATEGORY is the overlay category."
 (defconst mid (concat \(?: \(?: cid  "[.]" \) "*" \) ))
 (defconst qid (concat mid \(?: vid | cid \) ))
 
-(defconst id1 "\\<\\(?:[[:lower:]]+\\|[[:upper:]]+\\)'*\\([[:digit:]]+\\)'*\\>")
-(defconst id2 "\\<\\(?:[[:alpha:]_]+\\)'*\\([[:digit:]]+\\)'*\\>")
+(defconst id1 "\\<\\(?:[[:lower:]]+\\|[[:upper:]]+\\)'*\\([[:digit:]]+\\)'*\\(?:[^[:alnum:]'_]\\|'*?$\\)")
+(defconst id2 "\\<\\(?:[[:alpha:]_]+\\)'*\\([[:digit:]]+\\)'*\\(?:[^[:alnum:]'_]\\|'*?$\\)")
 
 (defun qot (del)
   (concat del \(?: "[^" del "\\]" | \(?: "[^\\]" | \(?: "\\\\\\\\" \) "*" \) "\\\\." \) "*" del
