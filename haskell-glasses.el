@@ -321,6 +321,16 @@ Used in :set parameter of some customized glasses variables."
            (block ,continue
              ,@body))))))
 
+(defmacro while-search (regex lim bw &rest body)
+  (let ((max (gensym "mx")))
+    `(let ((,max 0))
+       (awhile (and
+                (,(if bw #'re-search-backward #'re-search-forward) ,regex ,lim t)
+                (,(if bw #'> #'<=) (point) ,lim)
+                (<= ,max (buffer-size)))
+               (setq ,max (1+ ,max))
+               ,@body))))
+
 (defun symbolize (&rest things)
   (flet ((ensure-string (thing)
                         (cond  ((symbolp thing) (symbol-name thing))
@@ -405,13 +415,7 @@ CATEGORY is the overlay category."
    (if trailing-blanks-p (\("[[:blank:]]+"\)) id>) \)))
 
 (defconst lncmt
-  (concat \( "--"
-          \(?: "[-[:alnum:][:blank:](){}|;_`'\",]"
-          | "\\["
-          | "\\]"
-          \)
-          ".*" \)
-          ))
+  ( \( "--" \(?: "[-[:alnum:][:blank:](){}|;_`'\",]" | "\\[" | "\\]" \) ".*" \) ))
 
 ;;; Glasses skips
 
@@ -419,21 +423,18 @@ CATEGORY is the overlay category."
 (defun haskell-glasses-skip-list (&optional lim)
   (labels ((escape-p (pos)
               (let ((sls 0))
-                (while (and (<= sls pos)
-                            (char-equal ?\\ (char-before (- pos sls))))
+                (while (and (<= sls pos) (char-equal ?\\ (char-before (- pos sls))))
                   (setq sls (1+ sls)))
                 (oddp sls)))
            (skip-quo (quo)
              (with-save
-              (while (re-search-forward quo (point-max) t)
+              (while-search quo (point-max) nil
                 (unless (escape-p (1- (point))) 
                   (return (point))))
               (return (point-max))))
            (skip-par (opn cls)
              (with-save
-              (while (re-search-forward
-                      (concat \( opn \) | \( cls \))
-                      (point-max) t)
+              (while-search (\( opn \) | \( cls \)) (point-max) nil
                 (if (match-beginning 2)
                     (return (point))
                   (awhen (skip-par opn cls)
@@ -444,16 +445,16 @@ CATEGORY is the overlay category."
            (skip-cmt () (skip-par "{-" "-}")))
     (with-save
      (goto-char (point-min))
-     (let ((r (concat \( "\"" \)
-                      | \( "{-" \)
-                      | lncmt
-                      | "[^[:alnum:]_']" \( "\'" \)
-                      | \( "^\'" \)
-                      | \( "^#.*$"\)
-                      ))
+     (let ((r ( \( "\"" \)
+                | \( "{-" \)
+                | lncmt
+                | "[^[:alnum:]_']" \( "\'" \)
+                | \( "^\'" \)
+                | \( "^#.*$"\)
+                ))
            (skips nil)
            (lim (or lim (point-max))))
-       (while (and (<= (point) lim) (re-search-forward r lim t))
+       (while-search r lim nil
          (achoose (((match-beginning 1) (skip-str))
                    ((match-beginning 2) (skip-cmt))
                    ((match-beginning 3) (match-end 3))
@@ -474,18 +475,17 @@ CATEGORY is the overlay category."
 
 (defun haskell-glasses-find-lamb-dot (pos &optional lim)
   (let ((lim (or lim (point-max)))
-        (args (concat \( "(" \) | \( "\\[" \) | \( "{" \)
-                      | \(?: (iop "->") \) ;Hey! I'm here.
-                      | "[#@~._'\"]" | ")" | "\\]" | "}"
-                      | \( "[[:punct:]]" \)))
+        (args ( \( "(" \) | \( "\\[" \) | \( "{" \)
+                | \(?: (iop "->") \) ;Hey! I'm here.
+                | "[#@~._'\"]" | ")" | "\\]" | "}"
+                | \( "[[:punct:]]" \)))
         (skips (remove-if (lambda (skip)
                             (or (< (cadr skip) pos) (< lim (car skip))))
                           haskell-glasses-skip-list)))
     (labels ((skip-par (o c)
                 (with-save
-                 (while (re-search-forward
-                         (concat \( (regexp-quote o) \)
-                                 | \( (regexp-quote c) \)) lim t)
+                 (while-search (\( (regexp-quote o) \) | \( (regexp-quote c) \)) 
+                               lim nil 
                    (achoose (((match-beginning 1) (match-end 1))
                              ((match-beginning 2) (match-end 2)))
                     (let ((dot it))
@@ -500,7 +500,7 @@ CATEGORY is the overlay category."
              (skip-rcd () (skip-par "{" "}")))
       (with-save
        (goto-char pos)
-       (while (and (<= (point) lim) (re-search-forward args lim t))
+       (while-search args lim nil
          (achoose (((match-beginning 1) (match-end 1))
                    ((match-beginning 2) (match-end 2))
                    ((match-beginning 3) (match-end 3))
@@ -526,7 +526,7 @@ CATEGORY is the overlay category."
        (let ((case-fold-search nil))
          (with-save
           (goto-char beg)
-          (while (re-search-forward ,mat end t)
+          (while-search ,mat end nil
             ,@(mapcar
                (lambda (m)
                  (if (atom (car m))
@@ -642,7 +642,7 @@ CATEGORY is the overlay category."
 (define-haskell-vid-glasses glasses-bottom-undefined    "undefined" glasses-bottom-p glasses-bottom-face nil nil)
 
 (define-haskell-iop-glasses glasses-fun-compose "." glasses-fun-compose-p glasses-fun-compose-face
-  (when (re-search-backward (concat \( cid \) ) (line-beginning-position) t)
+  (when (re-search-backward ( \( cid \) ) (line-beginning-position) t)
     (let ((pse (match-end 1)))
       (when (and pse (= pse sb))
         (return)))))
