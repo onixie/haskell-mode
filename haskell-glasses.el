@@ -288,7 +288,7 @@ Used in :set parameter of some customized glasses variables."
 (defmacro with-save (&rest body)
   `(save-excursion
      (save-match-data
-       (block nil ,@body))))
+       (let ((case-fold-search nil)) (block nil ,@body)))))
 
 (defmacro awhen (test &rest body)
   `(let ((it ,test))
@@ -332,17 +332,19 @@ Used in :set parameter of some customized glasses variables."
            (block ,continue
              ,@body))))))
 
-(defmacro while-search (regex lim bw &rest body)
+(defmacro* while-search ((regex &key limit count backward-p) &rest body)
   (let ((max (gensym "mx"))
         (rgx (gensym "rx"))
-        (ran (gensym "rn")))
+        (ran (gensym "rn"))
+        (cnt (gensym "ct")))
     `(let ((,max 0)
            (,rgx ,regex)
-           (,ran ,lim))
+           (,ran (or ,limit (if ,backward-p (point-min) (point-max))))
+           (,cnt (or ,count (buffer-size))))
        (awhile (and
-                (,(if bw #'re-search-backward #'re-search-forward) ,rgx ,ran t)
-                (,(if bw #'> #'<=) (point) ,ran)
-                (<= ,max (buffer-size)))
+                (funcall (if ,backward-p #'re-search-backward #'re-search-forward) ,rgx ,ran t)
+                (funcall (if ,backward-p #'> #'<=) (point) ,ran)
+                (< ,max ,cnt))
                (setq ,max (1+ ,max))
                ,@body))))
 
@@ -457,13 +459,13 @@ CATEGORY is the overlay category."
                 (oddp sls)))
            (skip-quo (quo)
              (with-save
-              (while-search quo (point-max) nil
+              (while-search (quo)
                 (unless (escape-p (1- (point))) 
                   (return (point))))
               (return (point-max))))
            (skip-par (opn cls)
              (with-save
-              (while-search (\( opn \) | \( cls \)) (point-max) nil
+              (while-search ((\( opn \) | \( cls \)))
                 (if (match-beginning 2)
                     (return (point))
                   (awhen (skip-par opn cls)
@@ -482,7 +484,7 @@ CATEGORY is the overlay category."
                ))
            (skips nil)
            (lim (or lim (point-max))))
-       (while-search r lim nil
+       (while-search (r :limit lim)
          (achoose (((match-beginning 1) (skip-str))
                    ((match-beginning 2) (skip-cmt))
                    ((match-beginning 3) (skip-chr))
@@ -512,8 +514,8 @@ CATEGORY is the overlay category."
                           haskell-glasses-skip-list)))
     (labels ((skip-par (o c)
                 (with-save
-                 (while-search (\( (regexp-quote o) \) | \( (regexp-quote c) \)) 
-                               lim nil 
+                 (while-search ((\( (regexp-quote o) \) | \( (regexp-quote c) \)) 
+                                :limit lim)
                    (achoose (((match-beginning 1) (match-end 1))
                              ((match-beginning 2) (match-end 2)))
                     (let ((dot it))
@@ -528,7 +530,7 @@ CATEGORY is the overlay category."
              (skip-rcd () (skip-par "{" "}")))
       (with-save
        (goto-char pos)
-       (while-search args lim nil
+       (while-search (args :limit lim)
          (achoose (((match-beginning 1) (match-end 1))
                    ((match-beginning 2) (match-end 2))
                    ((match-beginning 3) (match-end 3))
@@ -549,10 +551,9 @@ CATEGORY is the overlay category."
 (defmacro haskell-glasses-make-glasses (mat tgl-p makers)
   `(lambda (beg end)
      (when ,tgl-p
-       (let ((case-fold-search nil))
-         (with-save
+       (with-save
           (goto-char beg)
-          (while-search ,mat end nil
+          (while-search (,mat :limit end)
             ,@(mapcar
                (lambda (m)
                  `(progn
@@ -565,7 +566,7 @@ CATEGORY is the overlay category."
                        (if (atom (car m))
                            (list (car m))
                          (car m)))))
-               makers)))))))
+               makers))))))
 
 (defmacro haskell-glasses-make-iop-glasses (mat gls tgl-p nom-p hmo-p fmo &rest body)
   `(haskell-glasses-make-glasses (iop ,mat ,nom-p ,hmo-p ,fmo) ,tgl-p
