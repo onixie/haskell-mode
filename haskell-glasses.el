@@ -394,19 +394,10 @@ CATEGORY is the overlay category."
 (defconst \( "\\(")
 (defconst \) "\\)")
 (defconst \(?: "\\(?:" )
-(defconst \(?100: "\\(?100:" )          ;used for iop
-(defconst \(?101: "\\(?101:" )
-(defconst \(?200: "\\(?200:" )          ;used for vid
-(defconst \(?201: "\\(?201:" )
-(defconst \(?202: "\\(?202:" )
 
 (defun \( (&rest rs) (apply #'concat \( rs))
 (defun \(?: (&rest rs) (apply #'concat \(?: rs))
-(defun \(?100: (&rest rs) (apply #'concat \(?100: rs))
-(defun \(?101: (&rest rs) (apply #'concat \(?101: rs))
-(defun \(?200: (&rest rs) (apply #'concat \(?200: rs))
-(defun \(?201: (&rest rs) (apply #'concat \(?201: rs))
-(defun \(?202: (&rest rs) (apply #'concat \(?202: rs))
+
 
 (defconst <id (\(?: "^" | "[^[:alnum:]'_]" \)))
 (defconst id> (\(?: "[^[:alnum:]'_]" | "$" \)))
@@ -421,33 +412,25 @@ CATEGORY is the overlay category."
 (defconst id2 (\(?: <id \( \(?: "[[:alpha:]_]+" \)
                "'*" \( "[[:digit:]]+" \) "'*" \) id> \)))
 
-(defmacro with-mid-options (args &rest body)
-  `(let ((mid-less-p (car ,args))
-         (mid-hide-p (cadr ,args))
-         (mid-fix (caddr ,args)))
-     (let ((mid-fix (and mid-fix (regexp-quote mid-fix))))
-       ,@body)))
+(defun* iop (opreg &key mid-less-p mid-hide-p mid-fix)
+  (let ((mid-fix (and mid-fix (regexp-quote mid-fix))))
+    (cond (mid-less-p
+           (\(?: <op \( \( (regexp-quote opreg) \) \) op> \)))
+          (mid-hide-p
+           (\(?: <op \( \( (or mid-fix mid) (regexp-quote opreg) \) \) op> \)))
+          (t
+           (\(?: <op \( (or mid-fix mid) \( (regexp-quote opreg) \) \) op> \))))))
 
-(defun iop (opreg &rest options)
-  (with-mid-options options
-   (cond (mid-less-p
-          (\(?: <op \(?100: \(?101: (regexp-quote opreg) \) \) op> \)))
-         (mid-hide-p
-          (\(?: <op \(?100: \(?101: (or mid-fix mid) (regexp-quote opreg) \) \) op> \)))
-         (t
-          (\(?: <op \(?100: (or mid-fix mid) \(?101: (regexp-quote opreg) \) \) op> \))))))
-
-(defun vid (varreg trailing-blanks-p trailing-prime-or-subscript-p &rest options)
-  (with-mid-options
-   options
-   (let ((blanks (if trailing-blanks-p (\(?202:"[[:blank:]]+"\)) id>))
-         (prime-or-sub (when trailing-prime-or-subscript-p "[0-9']*")))
-       (cond (mid-less-p
-              (\(?: <id \(?200: \(?201: (regexp-quote varreg) \) prime-or-sub \) blanks \)))
-             (mid-hide-p
-              (\(?: <id \(?200: \(?201: (or mid-fix mid) (regexp-quote varreg) \) prime-or-sub \) blanks \)))
-             (t
-              (\(?: <id \(?200: (or mid-fix mid) \(?201: (regexp-quote varreg) \) prime-or-sub \) blanks \)))))))
+(defun* vid (varreg &key blanks-p suffix-p mid-less-p mid-hide-p mid-fix)
+  (let ((mid-fix (and mid-fix (regexp-quote mid-fix)))
+        (blanks (if blanks-p (\( "[[:blank:]]+" \)) id>))
+        (prime-or-sub (when suffix-p "[0-9']*")))
+    (cond (mid-less-p
+           (\(?: <id \( \( (regexp-quote varreg) \) prime-or-sub \) blanks \)))
+          (mid-hide-p
+           (\(?: <id \( \( (or mid-fix mid) (regexp-quote varreg) \) prime-or-sub \) blanks \)))
+          (t
+           (\(?: <id \( (or mid-fix mid) \( (regexp-quote varreg) \) prime-or-sub \) blanks \))))))
 
 (defconst lncmt
   (\( "--" \(?: "[-[:alnum:][:blank:](){}|;_`'\",]" | "\\[" | "\\]" \) ".*" \)))
@@ -510,7 +493,7 @@ CATEGORY is the overlay category."
 (defun haskell-glasses-find-lamb-dot (pos &optional lim)
   (let ((lim (or lim (point-max)))
         (args (\( "(" \) | \( "\\[" \) | \( "{" \)
-               | (iop "->" t) ;Hey! I'm here.
+               | (iop "->" :mid-less-p t) ;Hey! I'm here.
                | "[#@~._'\"]" | ")" | "\\]" | "}"
                | \( "[[:punct:]]" \)))
         (skips (remove-if (lambda (skip)
@@ -538,16 +521,16 @@ CATEGORY is the overlay category."
          (achoose (((match-beginning 1) (match-end 1))
                    ((match-beginning 2) (match-end 2))
                    ((match-beginning 3) (match-end 3))
-                   ((match-beginning 4) (match-end 4))
-                   ((match-beginning 101) (match-end 101)))
+                   ((match-beginning 5) (match-end 5))
+                   ((match-beginning 6) (match-end 6)))
                   (aif (haskell-glasses-skip-glasses-p (car it) (cadr it))
                      (goto-char (1- (cadr it)))
-                     (when (match-beginning 4) (return))
+                     (when (print (match-beginning 6)) (return))
                      (achoose (((match-beginning 1) (skip-tpl))
                                ((match-beginning 2) (skip-lst))
                                ((match-beginning 3) (skip-rcd)))
                       (goto-char (1- (cadr it))))
-                     (achoose (((match-beginning 101) (match-end 101)))
+                     (achoose (((match-beginning 5) (match-end 5)))
                       (return it)))))))))
 
 ;;; Glasses makers
@@ -578,8 +561,8 @@ CATEGORY is the overlay category."
 
 (defmacro haskell-glasses-make-iop-glasses (mat gls tgl-p &rest body)
   `(haskell-glasses-make-glasses (iop ,mat) ,tgl-p
-    ((101 (lambda (sb se)
-            (goto-char (match-end 100))
+    ((2 (lambda (sb se)
+            (goto-char (match-end 1))
             (with-save
              ,@body
              (unless (some #'haskell-glasses-overlay-p (overlays-at sb))
@@ -587,14 +570,14 @@ CATEGORY is the overlay category."
                  (overlay-put os 'display (eval ,gls))))))))))
 
 (defmacro haskell-glasses-make-vid-glasses (mat gls tgl-p tbk tps &rest body)
-  `(haskell-glasses-make-glasses (vid ,mat ,tbk ,tps) ,tgl-p
-    ((201 (lambda (sb se)
-            (goto-char (match-end 200))
+  `(haskell-glasses-make-glasses (vid ,mat :blanks-p ,tbk :suffix-p ,tps) ,tgl-p
+    ((2 (lambda (sb se)
+            (goto-char (match-end 1))
             (with-save
              ,@body
              (let ((os (haskell-glasses-make-overlay sb se ,gls)))
                (overlay-put os 'display (eval ,gls))))))
-     (202 (lambda (sb se)
+     (3 (lambda (sb se)
             (with-save
              ,@body
              (let ((os (haskell-glasses-make-overlay sb se ,gls)))
