@@ -161,13 +161,6 @@
   :set 'haskell-glasses-custom-set
   :initialize 'custom-initialize-default)
 
-(defcustom glasses-subscript-allow-trailing-p t
-  "Display suffixed index along with identifier glasses, eg. undefined1 as ⊥₁"
-  :group 'haskell-glasses
-  :type 'boolean
-  :set 'haskell-glasses-custom-set
-  :initialize 'custom-initialize-default)
-
 (defface glasses-subscript-face nil
   "Face to be put on suffixing index numbers."
   :group 'haskell-glasses)
@@ -254,12 +247,30 @@
   "Face to be put on bottom."
   :group 'haskell-glasses)
 
+(defcustom glasses-allow-prime-and-number-suffix-p t
+  "Display suffixing prime and number along with identifier glasses, eg. undefined1' as ⊥₁'"
+  :group 'haskell-glasses
+  :type 'boolean
+  :set 'haskell-glasses-custom-set
+  :initialize 'custom-initialize-default)
+
+(defcustom glasses-hide-module-name-p t
+  "Display glasses but hide prefixing module name, eg. Prelude.undefined as ⊥"
+  :group 'haskell-glasses
+  :type 'boolean
+  :set 'haskell-glasses-custom-set
+  :initialize 'custom-initialize-default)
+
 (defcustom glasses-user-defined-glasses nil
   "Display user-defined names scholastic."
   :group 'haskell-glasses
   :type '(alist :key-type (string :tag "Name")
-                :value-type (group (string :tag "Glass") (boolean :tag "Infix operator P" :value t) (boolean :tag "Allow trailing P")
-                                   (boolean :tag "Enable P") (choice :tag "Face"(const :tag "None" nil) face)))
+                :value-type (group (string :tag "Glass")
+                                   (boolean :tag "Infix operator P" :value t)
+                                   (boolean :tag "Allow prime and number suffix P")
+                                   (boolean :tag "Hide module name P")
+                                   (boolean :tag "Enable P" :value t)
+                                   (choice :tag "Face"(const :tag "None" nil) face)))
   :set 'haskell-glasses-custom-set
   :initialize 'custom-initialize-default)
 
@@ -371,7 +382,7 @@ Consider current setting of user variables."
            (list #'haskell-glasses-fix-overlay-cursor)))
     (dolist (io glasses-user-defined-glasses)
       (let ((gls (haskell-glasses-make-user-glasses-symbol (car io))))
-        (put gls 'face (nth 5 io))
+        (put gls 'face (nth 6 io))
         (put gls 'insert-in-front-hooks
              (list #'haskell-glasses-fix-overlay-cursor))))))
 
@@ -408,29 +419,29 @@ CATEGORY is the overlay category."
 (defconst mid (\(?: \(?: cid  "[.]" \) "*" \)))
 
 (defconst id1 (\(?: <id \( \(?: "[[:lower:]]+" | "[[:upper:]]+" \)
-               "'*" \( "[[:digit:]]+" \) "'*" \) id> \)))
+               \(?: \( "[[:digit:]]+" \) "'*" | "'*" \( "[[:digit:]]+" \) \) \) id> \)))
 (defconst id2 (\(?: <id \( \(?: "[[:alpha:]_]+" \)
-               "'*" \( "[[:digit:]]+" \) "'*" \) id> \)))
+               \(?: \( "[[:digit:]]+" \) "'*" | "'*" \( "[[:digit:]]+" \) \) \) id> \)))
 
-(defun* iop (opreg &key mid-less-p mid-hide-p mid-fix)
-  (let ((mid-fix (and mid-fix (regexp-quote mid-fix))))
-    (cond (mid-less-p
+(defun* iop (opreg &key moduleless-p hide-module-p fixed-module)
+  (let ((fixed-module (and fixed-module (regexp-quote fixed-module))))
+    (cond (moduleless-p
            (\(?: <op \( \( (regexp-quote opreg) \) \) op> \)))
-          (mid-hide-p
-           (\(?: <op \( \( (or mid-fix mid) (regexp-quote opreg) \) \) op> \)))
+          (hide-module-p
+           (\(?: <op \( \( (or fixed-module mid) (regexp-quote opreg) \) \) op> \)))
           (t
-           (\(?: <op \( (or mid-fix mid) \( (regexp-quote opreg) \) \) op> \))))))
+           (\(?: <op \( (or fixed-module mid) \( (regexp-quote opreg) \) \) op> \))))))
 
-(defun* vid (varreg &key blanks-p suffix-p mid-less-p mid-hide-p mid-fix)
-  (let ((mid-fix (and mid-fix (regexp-quote mid-fix)))
+(defun* vid (varreg &key blanks-p suffix-p moduleless-p hide-module-p fixed-module)
+  (let ((fixed-module (and fixed-module (regexp-quote fixed-module)))
         (blanks (if blanks-p (\( "[[:blank:]]+" \)) id>))
-        (prime-or-sub (when suffix-p "[0-9']*")))
-    (cond (mid-less-p
+        (prime-or-sub (when suffix-p (\(?: "[0-9]*'*" | "'*[0-9]*" \)))))
+    (cond (moduleless-p
            (\(?: <id \( \( (regexp-quote varreg) \) prime-or-sub \) blanks \)))
-          (mid-hide-p
-           (\(?: <id \( \( (or mid-fix mid) (regexp-quote varreg) \) prime-or-sub \) blanks \)))
+          (hide-module-p
+           (\(?: <id \( \( (or fixed-module mid) (regexp-quote varreg) \) prime-or-sub \) blanks \)))
           (t
-           (\(?: <id \( (or mid-fix mid) \( (regexp-quote varreg) \) prime-or-sub \) blanks \))))))
+           (\(?: <id \( (or fixed-module mid) \( (regexp-quote varreg) \) prime-or-sub \) blanks \))))))
 
 (defconst lncmt
   (\( "--" \(?: "[-[:alnum:][:blank:](){}|;_`'\",]" | "\\[" | "\\]" \) ".*" \)))
@@ -493,7 +504,7 @@ CATEGORY is the overlay category."
 (defun haskell-glasses-find-lamb-dot (pos &optional lim)
   (let ((lim (or lim (point-max)))
         (args (\( "(" \) | \( "\\[" \) | \( "{" \)
-               | (iop "->" :mid-less-p t) ;Hey! I'm here.
+               | (iop "->" :moduleless-p t) ;Hey! I'm here.
                | "[#@~._'\"]" | ")" | "\\]" | "}"
                | \( "[[:punct:]]" \)))
         (skips (remove-if (lambda (skip)
@@ -559,8 +570,8 @@ CATEGORY is the overlay category."
                          (car m)))))
                makers)))))))
 
-(defmacro haskell-glasses-make-iop-glasses (mat gls tgl-p &rest body)
-  `(haskell-glasses-make-glasses (iop ,mat) ,tgl-p
+(defmacro haskell-glasses-make-iop-glasses (mat gls tgl-p hmo &rest body)
+  `(haskell-glasses-make-glasses (iop ,mat :hide-module-p ,hmo) ,tgl-p
     ((2 (lambda (sb se)
             (goto-char (match-end 1))
             (with-save
@@ -569,8 +580,8 @@ CATEGORY is the overlay category."
                (let ((os (haskell-glasses-make-overlay sb se ,gls)))
                  (overlay-put os 'display (eval ,gls))))))))))
 
-(defmacro haskell-glasses-make-vid-glasses (mat gls tgl-p tbk tps &rest body)
-  `(haskell-glasses-make-glasses (vid ,mat :blanks-p ,tbk :suffix-p ,tps) ,tgl-p
+(defmacro haskell-glasses-make-vid-glasses (mat gls tgl-p tbk tps hmo &rest body)
+  `(haskell-glasses-make-glasses (vid ,mat :blanks-p ,tbk :suffix-p ,tps :hide-module-p ,hmo) ,tgl-p
     ((2 (lambda (sb se)
             (goto-char (match-end 1))
             (with-save
@@ -595,13 +606,14 @@ CATEGORY is the overlay category."
            (gls (nth 1 io))
            (iop (nth 2 io))
            (atl (nth 3 io))
-           (tgl (nth 4 io))
+           (hmo (nth 4 io))
+           (tgl (nth 5 io))
            (sym (haskell-glasses-make-user-glasses-symbol nam)))
       (when tgl
         (set sym gls)
         (if iop
-            (funcall (haskell-glasses-make-iop-glasses nam sym tgl) beg end)
-          (funcall (haskell-glasses-make-vid-glasses nam sym tgl nil (and atl glasses-subscript-allow-trailing-p)) beg end))))))
+            (funcall (haskell-glasses-make-iop-glasses nam sym tgl (and hmo glasses-hide-module-name-p)) beg end)
+          (funcall (haskell-glasses-make-vid-glasses nam sym tgl nil (and atl glasses-allow-prime-and-number-suffix-p) (and hmo glasses-hide-module-name-p)) beg end))))))
 
 (defun haskell-glasses-display-normal (beg end)
   "Display code in the region from BEG to END to their normal state."
@@ -628,41 +640,41 @@ CATEGORY is the overlay category."
          haskell-glasses-display-list
          (pushnew (haskell-glasses-make-glasses ,mat ,tgl-p ,makers) haskell-glasses-display-list)))
 
-(defmacro define-haskell-iop-glasses (name mat tgl-p face &rest body)
+(defmacro define-haskell-iop-glasses (name mat tgl-p face hmo &rest body)
   `(setq haskell-glasses-predefined-list
          (pushnew (list ',name ',face) haskell-glasses-predefined-list)
          haskell-glasses-display-list
-         (pushnew (haskell-glasses-make-iop-glasses ,mat ',name ,tgl-p ,@body) haskell-glasses-display-list)))
+         (pushnew (haskell-glasses-make-iop-glasses ,mat ',name ,tgl-p (and ,hmo glasses-hide-module-name-p) ,@body) haskell-glasses-display-list)))
 
-(defmacro define-haskell-vid-glasses (name mat tgl-p face tbk tps &rest body)
+(defmacro define-haskell-vid-glasses (name mat tgl-p face tbk tps hmo &rest body)
   `(setq haskell-glasses-predefined-list
          (pushnew (list ',name ',face) haskell-glasses-predefined-list)
          haskell-glasses-display-list
-         (pushnew (haskell-glasses-make-vid-glasses ,mat ',name ,tgl-p ,tbk (and ,tps glasses-subscript-allow-trailing-p) ,@body) haskell-glasses-display-list)))
+         (pushnew (haskell-glasses-make-vid-glasses ,mat ',name ,tgl-p ,tbk (and ,tps glasses-allow-prime-and-number-suffix-p) (and ,hmo glasses-hide-module-name-p) ,@body) haskell-glasses-display-list)))
 
 
 ;;; Predefined glasses
 
-(define-haskell-iop-glasses glasses-arrow-right         "->"        glasses-arrow-p  glasses-arrow-face)
-(define-haskell-iop-glasses glasses-arrow-left          "<-"        glasses-arrow-p  glasses-arrow-face)
-(define-haskell-iop-glasses glasses-arrow-double-right  "=>"        glasses-arrow-p  glasses-arrow-face)
-(define-haskell-iop-glasses glasses-equiv-equal         "=="        glasses-equiv-p  glasses-equiv-face)
-(define-haskell-iop-glasses glasses-equiv-not-equal     "/="        glasses-equiv-p  glasses-equiv-face)
-(define-haskell-iop-glasses glasses-equiv-greater-equal ">="        glasses-equiv-p  glasses-equiv-face)
-(define-haskell-iop-glasses glasses-equiv-less-equal    "<="        glasses-equiv-p  glasses-equiv-face)
-(define-haskell-iop-glasses glasses-equiv-decl          "="         glasses-equiv-p  glasses-equiv-face)
-(define-haskell-iop-glasses glasses-logic-and           "&&"        glasses-logic-p  glasses-logic-face)
-(define-haskell-iop-glasses glasses-logic-or            "||"        glasses-logic-p  glasses-logic-face)
-(define-haskell-vid-glasses glasses-logic-not           "not"       glasses-logic-p  glasses-logic-face    t nil)
-(define-haskell-vid-glasses glasses-bottom-undefined    "undefined" glasses-bottom-p glasses-bottom-face nil nil)
+(define-haskell-iop-glasses glasses-arrow-right         "->"        glasses-arrow-p  glasses-arrow-face nil)
+(define-haskell-iop-glasses glasses-arrow-left          "<-"        glasses-arrow-p  glasses-arrow-face nil)
+(define-haskell-iop-glasses glasses-arrow-double-right  "=>"        glasses-arrow-p  glasses-arrow-face nil)
+(define-haskell-iop-glasses glasses-equiv-equal         "=="        glasses-equiv-p  glasses-equiv-face nil)
+(define-haskell-iop-glasses glasses-equiv-not-equal     "/="        glasses-equiv-p  glasses-equiv-face nil)
+(define-haskell-iop-glasses glasses-equiv-greater-equal ">="        glasses-equiv-p  glasses-equiv-face nil)
+(define-haskell-iop-glasses glasses-equiv-less-equal    "<="        glasses-equiv-p  glasses-equiv-face nil)
+(define-haskell-iop-glasses glasses-equiv-decl          "="         glasses-equiv-p  glasses-equiv-face nil)
+(define-haskell-iop-glasses glasses-logic-and           "&&"        glasses-logic-p  glasses-logic-face nil)
+(define-haskell-iop-glasses glasses-logic-or            "||"        glasses-logic-p  glasses-logic-face nil)
+(define-haskell-vid-glasses glasses-logic-not           "not"       glasses-logic-p  glasses-logic-face    t nil t)
+(define-haskell-vid-glasses glasses-bottom-undefined    "undefined" glasses-bottom-p glasses-bottom-face nil nil nil)
 
-(define-haskell-iop-glasses glasses-fun-compose "." glasses-fun-compose-p glasses-fun-compose-face
+(define-haskell-iop-glasses glasses-fun-compose "." glasses-fun-compose-p glasses-fun-compose-face nil
   (when (re-search-backward ( \( cid \) ) (line-beginning-position) t)
     (let ((pse (match-end 1)))
       (when (and pse (= pse sb))
         (return)))))
 
-(define-haskell-iop-glasses glasses-lambda-lambda "\\" glasses-lambda-p glasses-lambda-face
+(define-haskell-iop-glasses glasses-lambda-lambda "\\" glasses-lambda-p glasses-lambda-face nil
   (goto-char sb)
   (aif (haskell-glasses-find-lamb-dot se (point-max))
        (let  ((os (haskell-glasses-make-overlay (car it) (cadr it) 'glasses-lambda-lambda)))
@@ -671,12 +683,12 @@ CATEGORY is the overlay category."
 
 (define-haskell-glasses glasses-subscript (if glasses-subscript-inhibit-mix-case-p id1 id2)
   glasses-subscript-p glasses-subscript-face
-  ((2 (lambda (sb se)
-        (goto-char (match-end 1))
-        (let  ((os (haskell-glasses-make-overlay sb se 'glasses-subscript)))
-          (overlay-put os 'display
-                       `((height ,glasses-subscript-height)
-                         (raise ,glasses-subscript-raise))))))))
+  (((2 3) (lambda (sb se)
+            (goto-char (match-end 1))
+            (let  ((os (haskell-glasses-make-overlay sb se 'glasses-subscript)))
+              (overlay-put os 'display
+                           `((height ,glasses-subscript-height)
+                             (raise ,glasses-subscript-raise))))))))
 
 
 ;;; Minor mode definition
