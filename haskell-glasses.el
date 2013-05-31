@@ -447,9 +447,8 @@ CATEGORY is the overlay category."
      (goto-char (point-min))
      (let ((r ( \( "\"" \)
                 | \( "{-" \)
+                | \(?: "^" | "[^[:alnum:]_']" \) \( "\'" \) 
                 | lncmt
-                | "[^[:alnum:]_']" \( "\'" \)
-                | \( "^\'" \)
                 | \( "^#.*$"\)
                 ))
            (skips nil)
@@ -457,9 +456,9 @@ CATEGORY is the overlay category."
        (while-search r lim nil
          (achoose (((match-beginning 1) (skip-str))
                    ((match-beginning 2) (skip-cmt))
-                   ((match-beginning 3) (match-end 3))
-                   ((or (match-beginning 4) (match-beginning 5)) (skip-chr))
-                   ((match-beginning 6) (match-end 6)))
+                   ((match-beginning 3) (skip-chr))
+                   ((match-beginning 4) (match-end 4))
+                   ((match-beginning 5) (match-end 5)))
           (goto-char (cadr it))
           (setq skips (pushnew it skips))))
        skips))))
@@ -476,9 +475,9 @@ CATEGORY is the overlay category."
 (defun haskell-glasses-find-lamb-dot (pos &optional lim)
   (let ((lim (or lim (point-max)))
         (args ( \( "(" \) | \( "\\[" \) | \( "{" \)
-                | \(?: (iop "->") \) ;Hey! I'm here.
+                | (iop "->") ;Hey! I'm here.
                 | "[#@~._'\"]" | ")" | "\\]" | "}"
-                | \( "[[:punct:]]" \)))
+                | \( "[[:punct:]]" \) ))
         (skips (remove-if (lambda (skip)
                             (or (< (cadr skip) pos) (< lim (car skip))))
                           haskell-glasses-skip-list)))
@@ -490,7 +489,7 @@ CATEGORY is the overlay category."
                              ((match-beginning 2) (match-end 2)))
                     (let ((dot it))
                       (aif (haskell-glasses-skip-glasses-p (car dot) (cadr dot))
-                           (goto-char (1- (cadr it)))
+                           (goto-char (cadr it)) ;no need to look behind
                            (if (match-beginning 2)
                                (return (cadr dot))
                              (awhen (skip-par o c) (goto-char it)))))))
@@ -504,7 +503,6 @@ CATEGORY is the overlay category."
          (achoose (((match-beginning 1) (match-end 1))
                    ((match-beginning 2) (match-end 2))
                    ((match-beginning 3) (match-end 3))
-                   ((match-beginning 4) (match-end 4))
                    ((match-beginning 5) (match-end 5))
                    ((match-beginning 6) (match-end 6)))
                   (aif (haskell-glasses-skip-glasses-p (car it) (cadr it))
@@ -514,8 +512,7 @@ CATEGORY is the overlay category."
                                ((match-beginning 2) (skip-lst))
                                ((match-beginning 3) (skip-rcd)))
                       (goto-char (1- (cadr it))))
-                     (achoose (((match-beginning 4) (match-end 4))
-                               ((match-beginning 5) (match-end 5)))
+                     (achoose (((match-beginning 5) (match-end 5)))
                       (return it)))))))))
 
 ;;; Glasses makers
