@@ -398,8 +398,8 @@ CATEGORY is the overlay category."
 (defconst <op (\(?: "^" | "[^[:punct:]]" | "[]}()_'\"|]" \)))
 (defconst op> (\(?: "[^[:punct:]]" | "[[{()_'\"|]" | "$" \)))
 
-(defconst cid (\(?: "[[:upper:]][[:alnum:]_']*"  \) ))
-(defconst mid (\(?: \(?: cid  "[.]" \) "*" \) ))
+(defconst cid (\(?: "[[:upper:]][[:alnum:]_']*"  \)))
+(defconst mid (\(?: \(?: cid  "[.]" \) "*" \)))
 
 (defconst id1 (\(?: <id \( \(?: "[[:lower:]]+" | "[[:upper:]]+" \)
                "'*" \( "[[:digit:]]+" \) "'*" \) id> \)))
@@ -415,7 +415,7 @@ CATEGORY is the overlay category."
    (if trailing-blanks-p (\("[[:blank:]]+"\)) id>) \)))
 
 (defconst lncmt
-  ( \( "--" \(?: "[-[:alnum:][:blank:](){}|;_`'\",]" | "\\[" | "\\]" \) ".*" \) ))
+  (\( "--" \(?: "[-[:alnum:][:blank:](){}|;_`'\",]" | "\\[" | "\\]" \) ".*" \)))
 
 ;;; Glasses skips
 
@@ -445,12 +445,12 @@ CATEGORY is the overlay category."
            (skip-cmt () (skip-par "{-" "-}")))
     (with-save
      (goto-char (point-min))
-     (let ((r ( \( "\"" \)
-                | \( "{-" \)
-                | \(?: "^" | "[^[:alnum:]_']" \) \( "\'" \) 
-                | lncmt
-                | \( "^#.*$"\)
-                ))
+     (let ((r (\( "\"" \)
+               | \( "{-" \)
+               | \(?: "^" | "[^[:alnum:]_']" \) \( "\'" \) 
+               | lncmt
+               | \( "^#.*$"\)
+               ))
            (skips nil)
            (lim (or lim (point-max))))
        (while-search r lim nil
@@ -474,10 +474,10 @@ CATEGORY is the overlay category."
 
 (defun haskell-glasses-find-lamb-dot (pos &optional lim)
   (let ((lim (or lim (point-max)))
-        (args ( \( "(" \) | \( "\\[" \) | \( "{" \)
-                | (iop "->") ;Hey! I'm here.
-                | "[#@~._'\"]" | ")" | "\\]" | "}"
-                | \( "[[:punct:]]" \) ))
+        (args (\( "(" \) | \( "\\[" \) | \( "{" \)
+               | (iop "->") ;Hey! I'm here.
+               | "[#@~._'\"]" | ")" | "\\]" | "}"
+               | \( "[[:punct:]]" \)))
         (skips (remove-if (lambda (skip)
                             (or (< (cadr skip) pos) (< lim (car skip))))
                           haskell-glasses-skip-list)))
