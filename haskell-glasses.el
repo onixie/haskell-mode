@@ -448,10 +448,38 @@ CATEGORY is the overlay category."
 (defconst lncmt
   (\( "--" \(?: "[-[:alnum:][:blank:](){}|;_`'\",]" | "\\[" | "\\]" \) ".*" \)))
 
+(defconst !^
+  (\(?: "[[:space:]]+" | \(?: "\n[[:space:]]+" \) "*" \)))
+
+(defconst import
+  (\(?: "^import"
+   \( !^ "qualified" \) "?"
+   \(?: !^ \( mid cid \) \)
+   \(?: !^ "as" !^ \( mid cid \) \) "?"
+   \)))
+
+;;; Glasses imports
+
+(defvar haskell-glasses-import-list nil)
+
+(defun haskell-glasses-import-list (force-p)
+  (if (and haskell-glasses-import-list (not force-p))
+      haskell-glasses-import-list
+    (with-save
+     (goto-char (point-min))
+     (let ((imports nil))
+       (while-search (import)
+                     (awhen (match-string-no-properties 2)
+                            (let ((org it))
+                              (aif (match-string-no-properties 3)
+                                   (pushnew (list org it (match-beginning 1)) imports)
+                                   (pushnew (list org org (match-beginning 1)) imports)))))
+       (setq haskell-glasses-import-list imports)))))
+
 ;;; Glasses skips
 
 (defvar haskell-glasses-skip-list nil)
-(defun haskell-glasses-skip-list (&optional lim)
+(defun haskell-glasses-skip-list (force-p &optional lim)
   (labels ((escape-p (pos)
               (let ((sls 0))
                 (while (and (<= sls pos) (char-equal ?\\ (char-before (- pos sls))))
@@ -474,31 +502,31 @@ CATEGORY is the overlay category."
            (skip-str () (skip-quo "\""))
            (skip-chr () (skip-quo "\'"))
            (skip-cmt () (skip-par "{-" "-}")))
-    (with-save
-     (goto-char (point-min))
-     (let ((r (\( "\"" \)
-               | \( "{-" \)
-               | \(?: "^" | "[^[:alnum:]_']" \) \( "\'" \) 
-               | lncmt
-               | \( "^#.*$"\)
-               ))
-           (skips nil)
-           (lim (or lim (point-max))))
-       (while-search (r :limit lim)
+    (if (and haskell-glasses-skip-list (not force-p))
+        haskell-glasses-skip-list
+      (with-save
+       (goto-char (point-min))
+       (let ((r (\( "\"" \)
+                 | \( "{-" \)
+                 | \(?: "^" | "[^[:alnum:]_']" \) \( "\'" \) 
+                 | lncmt
+                 | \( "^#.*$"\)
+                 ))
+             (skips nil)
+             (lim (or lim (point-max))))
+         (while-search (r :limit lim)
          (achoose (((match-beginning 1) (skip-str))
                    ((match-beginning 2) (skip-cmt))
                    ((match-beginning 3) (skip-chr))
                    ((match-beginning 4) (match-end 4))
                    ((match-beginning 5) (match-end 5)))
-          (goto-char (cadr it))
-          (setq skips (pushnew it skips))))
-       skips))))
+           (goto-char (cadr it))
+           (setq skips (pushnew it skips))))
+         (setq haskell-glasses-skip-list skips))))))
 
 (defun haskell-glasses-skip-glasses-p (beg end)
   (with-save
-   (unless haskell-glasses-skip-list
-     (setq haskell-glasses-skip-list (haskell-glasses-skip-list)))
-   (dolist (area haskell-glasses-skip-list)
+   (dolist (area (haskell-glasses-skip-list nil))
      (when (or (and (<= (car area) beg) (< beg (cadr area)))
                (and (< (car area) end) (<= end (cadr area))))
        (return area)))))
@@ -511,7 +539,7 @@ CATEGORY is the overlay category."
                | \( "[[:punct:]]" \)))
         (skips (remove-if (lambda (skip)
                             (or (< (cadr skip) pos) (< lim (car skip))))
-                          haskell-glasses-skip-list)))
+                          (haskell-glasses-skip-list nil))))
     (labels ((skip-par (o c)
                 (with-save
                  (while-search ((\( (regexp-quote o) \) | \( (regexp-quote c) \)) 
