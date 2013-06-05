@@ -247,6 +247,42 @@
   "Face to be put on bottom."
   :group 'haskell-glasses)
 
+(defcustom glasses-append-p t
+  "Display append scholastic"
+  :group 'haskell-glasses
+  :type 'boolean
+  :set 'haskell-glasses-custom-set
+  :initialize 'custom-initialize-default)
+
+(defcustom glasses-append "⊕"
+  "Display ++ as ⊕"
+  :group 'haskell-glasses
+  :type 'string
+  :set 'haskell-glasses-custom-set
+  :initialize 'custom-initialize-default)
+
+(defface glasses-append-face nil
+  "Face to be put on append."
+  :group 'haskell-glasses)
+
+(defcustom glasses-ellipsis-p t
+  "Display append scholastic"
+  :group 'haskell-glasses
+  :type 'boolean
+  :set 'haskell-glasses-custom-set
+  :initialize 'custom-initialize-default)
+
+(defcustom glasses-ellipsis "…"
+  "Display .. as …"
+  :group 'haskell-glasses
+  :type 'string
+  :set 'haskell-glasses-custom-set
+  :initialize 'custom-initialize-default)
+
+(defface glasses-ellipsis-face nil
+  "Face to be put on append."
+  :group 'haskell-glasses)
+
 (defcustom glasses-allow-prime-and-number-suffix-p t
   "Display suffixing prime and number along with identifier glasses, eg. undefined1' as ⊥₁'"
   :group 'haskell-glasses
@@ -268,7 +304,16 @@
   :set 'haskell-glasses-custom-set
   :initialize 'custom-initialize-default)
 
-(defcustom glasses-user-defined-glasses nil
+(defcustom glasses-user-defined-glasses 
+  '(("`union`" "∪" t nil t "Data.Set" t nil)
+    ("`intersection`" "∩" t nil t "Data.Set" t nil)
+    ("`isSubsetOf`" "⊆" t nil t "Data.Set" t nil)
+    ("`isProperSubsetOf`" "⊂" t nil t "Data.Set" t nil)
+    ("`member`" "∈" t nil t "Data.Set" t nil)
+    ("`notMember`" "∉" t nil t "Data.Set" t nil)
+    ("empty" "∅" nil nil t "Data.Set" t nil)
+    ("`mappend`" "·" t nil t "Data.Monoid" t nil)
+    ("mempty" "e" nil nil t "Data.Monoid" t nil))
   "Display user-defined names scholastic."
   :group 'haskell-glasses
   :type '(alist :key-type (string :tag "Name")
@@ -279,7 +324,8 @@
                                    (string :tag "From module")
                                    (boolean :tag "Enable P" :value t)
                                    (choice :tag "Face"(const :tag "None" nil) face)))
-  :options '()
+  :options '("`union`" "`intersection`" "isSubsetOf" "isProperSubsetOf"
+             "`member`" "`notMember`" "empty" "`mappend`" "mempty")
   :set 'haskell-glasses-custom-set
   :initialize 'custom-initialize-default)
 
@@ -444,12 +490,15 @@ CATEGORY is the overlay category."
          (\(?: (regexp-quote fixed-module) "\\." \)))))
 
 (defun iop (opreg moduleless-p hide-module-p fixed-module)
-  (cond (moduleless-p
-         (\(?: <op \( \( (regexp-quote opreg) \) \) op> \)))
-        (hide-module-p
-         (\(?: <op \( \( (or (modid fixed-module) mid) (regexp-quote opreg) \) \) op> \)))
-        (t
-         (\(?: <op \( (or (modid fixed-module) mid) \( (regexp-quote opreg) \) \) op> \)))))
+  (let ((viop-p (char-equal ?\` (string-to-char opreg))))
+    (cond (moduleless-p
+           (\(?: <op \( \( (regexp-quote opreg) \) \) op> \)))
+          ((or viop-p hide-module-p)
+           (let ((opreg (if viop-p (substring opreg 1) opreg))
+                 (vbq (if viop-p "`" "")))
+             (\(?: <op \( \( (regexp-quote vbq) (or (modid fixed-module) mid) (regexp-quote opreg) \) \) op> \))))
+          (t
+           (\(?: <op \( (or (modid fixed-module) mid) \( (regexp-quote opreg) \) \) op> \))))))
 
 (defun vid (varreg blanks-p suffix-p moduleless-p hide-module-p fixed-module)
   (let ((blanks (if blanks-p (\( "[[:blank:]]+" \)) id>))
@@ -731,11 +780,14 @@ CATEGORY is the overlay category."
 (define-haskell-iop-glasses (glasses-arrow-left          "<-"        glasses-arrow-face  glasses-arrow-p :moduleless-p t))
 (define-haskell-iop-glasses (glasses-arrow-double-right  "=>"        glasses-arrow-face  glasses-arrow-p :moduleless-p t))
 (define-haskell-iop-glasses (glasses-equiv-decl          "="         glasses-equiv-face  glasses-equiv-p :moduleless-p t))
+(define-haskell-iop-glasses (glasses-ellipsis            ".."         glasses-ellipsis-face  glasses-ellipsis-p :moduleless-p t))
 
 (define-haskell-iop-glasses (glasses-equiv-equal         "=="        glasses-equiv-face  glasses-equiv-p :hide-module-p t))
 (define-haskell-iop-glasses (glasses-equiv-not-equal     "/="        glasses-equiv-face  glasses-equiv-p :hide-module-p t))
 (define-haskell-iop-glasses (glasses-equiv-greater-equal ">="        glasses-equiv-face  glasses-equiv-p :hide-module-p t))
 (define-haskell-iop-glasses (glasses-equiv-less-equal    "<="        glasses-equiv-face  glasses-equiv-p :hide-module-p t))
+
+(define-haskell-iop-glasses (glasses-append              "++"        glasses-append-face  glasses-append-p :hide-module-p t))
 
 (define-haskell-iop-glasses (glasses-logic-and           "&&"        glasses-logic-face  glasses-logic-p :hide-module-p t))
 (define-haskell-iop-glasses (glasses-logic-or            "||"        glasses-logic-face  glasses-logic-p :hide-module-p t))
