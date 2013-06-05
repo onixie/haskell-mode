@@ -261,6 +261,13 @@
   :set 'haskell-glasses-custom-set
   :initialize 'custom-initialize-default)
 
+(defcustom glasses-semantic-glasses-p t
+  "Display glasses according to their importing modules, eg. only Set.`union` as ∪"
+  :group 'haskell-glasses
+  :type 'boolean
+  :set 'haskell-glasses-custom-set
+  :initialize 'custom-initialize-default)
+
 (defcustom glasses-user-defined-glasses nil
   "Display user-defined names scholastic."
   :group 'haskell-glasses
@@ -269,6 +276,7 @@
                                    (boolean :tag "Infix operator P" :value t)
                                    (boolean :tag "Allow prime and number suffix P")
                                    (boolean :tag "Hide module name P")
+                                   (string :tag "From module")
                                    (boolean :tag "Enable P" :value t)
                                    (choice :tag "Face"(const :tag "None" nil) face)))
   :set 'haskell-glasses-custom-set
@@ -384,7 +392,7 @@ Consider current setting of user variables."
            (list #'haskell-glasses-fix-overlay-cursor)))
     (dolist (io glasses-user-defined-glasses)
       (let ((gls (haskell-glasses-make-user-glasses-symbol (car io))))
-        (put gls 'face (nth 6 io))
+        (put gls 'face (nth 7 io))
         (put gls 'insert-in-front-hooks
              (list #'haskell-glasses-fix-overlay-cursor))))))
 
@@ -418,21 +426,30 @@ CATEGORY is the overlay category."
 (defconst op> (\(?: "[^[:punct:]]" | "[[{()_'\"|]" | "$" \)))
 
 (defconst cid (\(?: "[[:upper:]][[:alnum:]_']*"  \)))
-(defconst mid (\(?: \(?: cid  "[.]" \) "*" \)))
+(defconst mid (\(?: \(?: cid  "\\." \) "*" \)))
 
 (defconst id1 (\(?: <id \( \(?: "[[:lower:]]+" | "[[:upper:]]+" \)
                \(?: \( "[[:digit:]]+" \) "'*" | "'*" \( "[[:digit:]]+" \) \) \) id> \)))
 (defconst id2 (\(?: <id \( \(?: "[[:alpha:]_]+" \)
                \(?: \( "[[:digit:]]+" \) "'*" | "'*" \( "[[:digit:]]+" \) \) \) id> \)))
 
+(defun modid (fixed-module)
+  (when (and glasses-semantic-glasses-p fixed-module)
+    (aif (find-if (lambda (mod)
+                      (or (string-equal (car mod) fixed-module)
+                          (string-equal (cadr mod) fixed-module)))
+                    (haskell-glasses-import-list nil))
+         (\(?: \(?: (nth 0 it) | (nth 1 it) \) "\\." \) (unless (nth 2 it) "?"))
+         (\(?: fixed-module "\\." \)))))
+
 (defun iop (opreg moduleless-p hide-module-p fixed-module)
   (let ((fixed-module (and fixed-module (regexp-quote fixed-module))))
     (cond (moduleless-p
            (\(?: <op \( \( (regexp-quote opreg) \) \) op> \)))
           (hide-module-p
-           (\(?: <op \( \( (or fixed-module mid) (regexp-quote opreg) \) \) op> \)))
+           (\(?: <op \( \( (or (modid fixed-module) mid) (regexp-quote opreg) \) \) op> \)))
           (t
-           (\(?: <op \( (or fixed-module mid) \( (regexp-quote opreg) \) \) op> \))))))
+           (\(?: <op \( (or (modid fixed-module) mid) \( (regexp-quote opreg) \) \) op> \))))))
 
 (defun vid (varreg blanks-p suffix-p moduleless-p hide-module-p fixed-module)
   (let ((fixed-module (and fixed-module (regexp-quote fixed-module)))
@@ -441,9 +458,9 @@ CATEGORY is the overlay category."
     (cond (moduleless-p
            (\(?: <id \( \( (regexp-quote varreg) \) prime-or-sub \) blanks \)))
           (hide-module-p
-           (\(?: <id \( \( (or fixed-module mid) (regexp-quote varreg) \) prime-or-sub \) blanks \)))
+           (\(?: <id \( \( (or (modid fixed-module) mid) (regexp-quote varreg) \) prime-or-sub \) blanks \)))
           (t
-           (\(?: <id \( (or fixed-module mid) \( (regexp-quote varreg) \) prime-or-sub \) blanks \))))))
+           (\(?: <id \( (or (modid fixed-module) mid) \( (regexp-quote varreg) \) prime-or-sub \) blanks \))))))
 
 (defconst lncmt
   (\( "--" \(?: "[-[:alnum:][:blank:](){}|;_`'\",]" | "\\[" | "\\]" \) ".*" \)))
@@ -633,17 +650,19 @@ CATEGORY is the overlay category."
            (iop (nth 2 io))
            (atl (nth 3 io))
            (hmo (nth 4 io))
-           (tgl (nth 5 io))
+           (fmo (nth 5 io))
+           (tgl (nth 6 io))
            (sym (haskell-glasses-make-user-glasses-symbol nam)))
       (when tgl
         (set sym gls)
         (if iop
-            (funcall (haskell-glasses-make-iop-glasses nam sym tgl nil (and hmo glasses-hide-module-name-p) nil) beg end)
-          (funcall (haskell-glasses-make-vid-glasses nam sym tgl nil (and atl glasses-allow-prime-and-number-suffix-p) nil (and hmo glasses-hide-module-name-p) nil) beg end))))))
+            (funcall (haskell-glasses-make-iop-glasses nam sym tgl nil (and hmo glasses-hide-module-name-p) fmo) beg end)
+          (funcall (haskell-glasses-make-vid-glasses nam sym tgl nil (and atl glasses-allow-prime-and-number-suffix-p) nil (and hmo glasses-hide-module-name-p) fmo) beg end))))))
 
 (defun haskell-glasses-display-normal (beg end)
   "Display code in the region from BEG to END to their normal state."
-  (setq haskell-glasses-skip-list nil)
+  (setq haskell-glasses-skip-list nil
+        haskell-glasses-import-list nil)
   (dolist (o (overlays-in beg end))
     (when (haskell-glasses-overlay-p o)
       (delete-overlay o))))
