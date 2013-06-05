@@ -583,7 +583,7 @@ CATEGORY is the overlay category."
                    ((match-beginning 6) (match-end 6)))
                   (aif (haskell-glasses-skip-glasses-p (car it) (cadr it))
                      (goto-char (1- (cadr it)))
-                     (when (print (match-beginning 6)) (return))
+                     (when (match-beginning 6) (return))
                      (achoose (((match-beginning 1) (skip-tpl))
                                ((match-beginning 2) (skip-lst))
                                ((match-beginning 3) (skip-rcd)))
