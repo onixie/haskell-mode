@@ -755,6 +755,25 @@ CATEGORY is the overlay category."
 
 ;;; Predefined glasses
 
+(define-haskell-iop-glasses (glasses-arrow-right         "->"        glasses-arrow-face  glasses-arrow-p :moduleless-p t))
+(define-haskell-iop-glasses (glasses-arrow-left          "<-"        glasses-arrow-face  glasses-arrow-p :moduleless-p t))
+(define-haskell-iop-glasses (glasses-arrow-double-right  "=>"        glasses-arrow-face  glasses-arrow-p :moduleless-p t))
+(define-haskell-iop-glasses (glasses-equiv-decl          "="         glasses-equiv-face  glasses-equiv-p :moduleless-p t))
+(define-haskell-iop-glasses (glasses-ellipsis            ".."         glasses-ellipsis-face  glasses-ellipsis-p :moduleless-p t))
+
+(define-haskell-iop-glasses (glasses-equiv-equal         "=="        glasses-equiv-face  glasses-equiv-p :hide-module-p t))
+(define-haskell-iop-glasses (glasses-equiv-not-equal     "/="        glasses-equiv-face  glasses-equiv-p :hide-module-p t))
+(define-haskell-iop-glasses (glasses-equiv-greater-equal ">="        glasses-equiv-face  glasses-equiv-p :hide-module-p t))
+(define-haskell-iop-glasses (glasses-equiv-less-equal    "<="        glasses-equiv-face  glasses-equiv-p :hide-module-p t))
+
+(define-haskell-iop-glasses (glasses-append              "++"        glasses-append-face  glasses-append-p :hide-module-p t))
+
+(define-haskell-iop-glasses (glasses-logic-and           "&&"        glasses-logic-face  glasses-logic-p :hide-module-p t))
+(define-haskell-iop-glasses (glasses-logic-or            "||"        glasses-logic-face  glasses-logic-p :hide-module-p t))
+(define-haskell-vid-glasses (glasses-logic-not           "not"       glasses-logic-face  glasses-logic-p :tight-with-latter-p t :hide-module-p t))
+
+(define-haskell-vid-glasses (glasses-bottom-undefined    "undefined" glasses-bottom-face glasses-bottom-p :hide-module-p t))
+
 (define-haskell-iop-glasses (glasses-fun-compose "." glasses-fun-compose-face glasses-fun-compose-p :hide-module-p t)
   (when (re-search-backward ( \( cid \) ) (line-beginning-position) t)
     (let ((pse (match-end 1)))
@@ -775,25 +794,6 @@ CATEGORY is the overlay category."
               (overlay-put os 'display
                            `((height ,glasses-subscript-height)
                              (raise ,glasses-subscript-raise))))))))
-
-(define-haskell-iop-glasses (glasses-arrow-right         "->"        glasses-arrow-face  glasses-arrow-p :moduleless-p t))
-(define-haskell-iop-glasses (glasses-arrow-left          "<-"        glasses-arrow-face  glasses-arrow-p :moduleless-p t))
-(define-haskell-iop-glasses (glasses-arrow-double-right  "=>"        glasses-arrow-face  glasses-arrow-p :moduleless-p t))
-(define-haskell-iop-glasses (glasses-equiv-decl          "="         glasses-equiv-face  glasses-equiv-p :moduleless-p t))
-(define-haskell-iop-glasses (glasses-ellipsis            ".."         glasses-ellipsis-face  glasses-ellipsis-p :moduleless-p t))
-
-(define-haskell-iop-glasses (glasses-equiv-equal         "=="        glasses-equiv-face  glasses-equiv-p :hide-module-p t))
-(define-haskell-iop-glasses (glasses-equiv-not-equal     "/="        glasses-equiv-face  glasses-equiv-p :hide-module-p t))
-(define-haskell-iop-glasses (glasses-equiv-greater-equal ">="        glasses-equiv-face  glasses-equiv-p :hide-module-p t))
-(define-haskell-iop-glasses (glasses-equiv-less-equal    "<="        glasses-equiv-face  glasses-equiv-p :hide-module-p t))
-
-(define-haskell-iop-glasses (glasses-append              "++"        glasses-append-face  glasses-append-p :hide-module-p t))
-
-(define-haskell-iop-glasses (glasses-logic-and           "&&"        glasses-logic-face  glasses-logic-p :hide-module-p t))
-(define-haskell-iop-glasses (glasses-logic-or            "||"        glasses-logic-face  glasses-logic-p :hide-module-p t))
-(define-haskell-vid-glasses (glasses-logic-not           "not"       glasses-logic-face  glasses-logic-p :tight-with-latter-p t :hide-module-p t))
-
-(define-haskell-vid-glasses (glasses-bottom-undefined    "undefined" glasses-bottom-face glasses-bottom-p :hide-module-p t))
 
 
 ;;; Minor mode definition
