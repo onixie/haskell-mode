@@ -279,6 +279,7 @@
                                    (string :tag "From module")
                                    (boolean :tag "Enable P" :value t)
                                    (choice :tag "Face"(const :tag "None" nil) face)))
+  :options '()
   :set 'haskell-glasses-custom-set
   :initialize 'custom-initialize-default)
 
@@ -439,21 +440,19 @@ CATEGORY is the overlay category."
                       (or (string-equal (car mod) fixed-module)
                           (string-equal (cadr mod) fixed-module)))
                     (haskell-glasses-import-list nil))
-         (\(?: \(?: (nth 0 it) | (nth 1 it) \) "\\." \) (unless (nth 2 it) "?"))
-         (\(?: fixed-module "\\." \)))))
+         (\(?: \(?: (regexp-quote (nth 0 it)) | (regexp-quote (nth 1 it)) \) "\\." \) (unless (nth 2 it) "?"))
+         (\(?: (regexp-quote fixed-module) "\\." \)))))
 
 (defun iop (opreg moduleless-p hide-module-p fixed-module)
-  (let ((fixed-module (and fixed-module (regexp-quote fixed-module))))
-    (cond (moduleless-p
-           (\(?: <op \( \( (regexp-quote opreg) \) \) op> \)))
-          (hide-module-p
-           (\(?: <op \( \( (or (modid fixed-module) mid) (regexp-quote opreg) \) \) op> \)))
-          (t
-           (\(?: <op \( (or (modid fixed-module) mid) \( (regexp-quote opreg) \) \) op> \))))))
+  (cond (moduleless-p
+         (\(?: <op \( \( (regexp-quote opreg) \) \) op> \)))
+        (hide-module-p
+         (\(?: <op \( \( (or (modid fixed-module) mid) (regexp-quote opreg) \) \) op> \)))
+        (t
+         (\(?: <op \( (or (modid fixed-module) mid) \( (regexp-quote opreg) \) \) op> \)))))
 
 (defun vid (varreg blanks-p suffix-p moduleless-p hide-module-p fixed-module)
-  (let ((fixed-module (and fixed-module (regexp-quote fixed-module)))
-        (blanks (if blanks-p (\( "[[:blank:]]+" \)) id>))
+  (let ((blanks (if blanks-p (\( "[[:blank:]]+" \)) id>))
         (prime-or-sub (when suffix-p (\(?: "[0-9]*'*" | "'*[0-9]*" \)))))
     (cond (moduleless-p
            (\(?: <id \( \( (regexp-quote varreg) \) prime-or-sub \) blanks \)))
@@ -707,19 +706,6 @@ CATEGORY is the overlay category."
 
 ;;; Predefined glasses
 
-(define-haskell-iop-glasses (glasses-arrow-right         "->"        glasses-arrow-face  glasses-arrow-p :moduleless-p t))
-(define-haskell-iop-glasses (glasses-arrow-left          "<-"        glasses-arrow-face  glasses-arrow-p :moduleless-p t))
-(define-haskell-iop-glasses (glasses-arrow-double-right  "=>"        glasses-arrow-face  glasses-arrow-p :moduleless-p t))
-(define-haskell-iop-glasses (glasses-equiv-decl          "="         glasses-equiv-face  glasses-equiv-p :moduleless-p t))
-(define-haskell-iop-glasses (glasses-equiv-equal         "=="        glasses-equiv-face  glasses-equiv-p :hide-module-p t))
-(define-haskell-iop-glasses (glasses-equiv-not-equal     "/="        glasses-equiv-face  glasses-equiv-p :hide-module-p t))
-(define-haskell-iop-glasses (glasses-equiv-greater-equal ">="        glasses-equiv-face  glasses-equiv-p :hide-module-p t))
-(define-haskell-iop-glasses (glasses-equiv-less-equal    "<="        glasses-equiv-face  glasses-equiv-p :hide-module-p t))
-(define-haskell-iop-glasses (glasses-logic-and           "&&"        glasses-logic-face  glasses-logic-p :hide-module-p t))
-(define-haskell-iop-glasses (glasses-logic-or            "||"        glasses-logic-face  glasses-logic-p :hide-module-p t))
-(define-haskell-vid-glasses (glasses-logic-not           "not"       glasses-logic-face  glasses-logic-p :tight-with-latter-p t :hide-module-p t))
-(define-haskell-vid-glasses (glasses-bottom-undefined    "undefined" glasses-bottom-face glasses-bottom-p :hide-module-p t))
-
 (define-haskell-iop-glasses (glasses-fun-compose "." glasses-fun-compose-face glasses-fun-compose-p :hide-module-p t)
   (when (re-search-backward ( \( cid \) ) (line-beginning-position) t)
     (let ((pse (match-end 1)))
@@ -740,6 +726,22 @@ CATEGORY is the overlay category."
               (overlay-put os 'display
                            `((height ,glasses-subscript-height)
                              (raise ,glasses-subscript-raise))))))))
+
+(define-haskell-iop-glasses (glasses-arrow-right         "->"        glasses-arrow-face  glasses-arrow-p :moduleless-p t))
+(define-haskell-iop-glasses (glasses-arrow-left          "<-"        glasses-arrow-face  glasses-arrow-p :moduleless-p t))
+(define-haskell-iop-glasses (glasses-arrow-double-right  "=>"        glasses-arrow-face  glasses-arrow-p :moduleless-p t))
+(define-haskell-iop-glasses (glasses-equiv-decl          "="         glasses-equiv-face  glasses-equiv-p :moduleless-p t))
+
+(define-haskell-iop-glasses (glasses-equiv-equal         "=="        glasses-equiv-face  glasses-equiv-p :hide-module-p t))
+(define-haskell-iop-glasses (glasses-equiv-not-equal     "/="        glasses-equiv-face  glasses-equiv-p :hide-module-p t))
+(define-haskell-iop-glasses (glasses-equiv-greater-equal ">="        glasses-equiv-face  glasses-equiv-p :hide-module-p t))
+(define-haskell-iop-glasses (glasses-equiv-less-equal    "<="        glasses-equiv-face  glasses-equiv-p :hide-module-p t))
+
+(define-haskell-iop-glasses (glasses-logic-and           "&&"        glasses-logic-face  glasses-logic-p :hide-module-p t))
+(define-haskell-iop-glasses (glasses-logic-or            "||"        glasses-logic-face  glasses-logic-p :hide-module-p t))
+(define-haskell-vid-glasses (glasses-logic-not           "not"       glasses-logic-face  glasses-logic-p :tight-with-latter-p t :hide-module-p t))
+
+(define-haskell-vid-glasses (glasses-bottom-undefined    "undefined" glasses-bottom-face glasses-bottom-p :hide-module-p t))
 
 
 ;;; Minor mode definition
